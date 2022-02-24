@@ -14,12 +14,7 @@ contract Crowdfundr is ERC721 {
     uint256 public deadline;
     bool public ended;
 
-    struct Contribution {
-        uint256 total;
-        uint256[] badges;
-    }
-
-    mapping(address => Contribution) public contributions;
+    mapping(address => uint256) public contributions;
 
     constructor(address _creator, uint256 _goal)
         ERC721("ContributorBadge", "BDG")
@@ -67,11 +62,12 @@ contract Crowdfundr is ERC721 {
     }
 
     // Cannot restart a campaign => no need to update `contributed`
+    // NEED TO ADD RE-ENTRANCY CHECK
     function withdrawContribution() external hasEnded {
-        require(contributions[msg.sender].total > 0, "No contribution to withdraw");
+        require(contributions[msg.sender] > 0, "No contribution to withdraw");
 
-        uint256 withdrawal = contributions[msg.sender].total;
-        contributions[msg.sender].total = 0;
+        uint256 withdrawal = contributions[msg.sender];
+        contributions[msg.sender] = 0;
         (bool success, ) = msg.sender.call{ value: withdrawal }("");
         require(success, "Failed to withdraw");
     }
@@ -79,18 +75,17 @@ contract Crowdfundr is ERC721 {
     function contribute() external payable isActive {
         require(msg.value >= 0.01 ether, "Must meet minimum donation");
 
-        contributions[msg.sender].total += msg.value;
+        contributions[msg.sender] += msg.value;
         contributed += msg.value;
 
         // Calculate contribution amount that has not already been rewarded a badge
-        uint256 amountToReward = contributions[msg.sender].total -
-            (contributions[msg.sender].badges.length * 1 ether);
+        uint256 amountToReward = contributions[msg.sender] -
+            (balanceOf(msg.sender) * 1 ether);
         // For every ether that has not been rewarded, mint a new contribution badge
         while (amountToReward >= 1 ether) { 
             amountToReward -= 1 ether;
             _tokenIds.increment();
             uint256 badgeId = _tokenIds.current();
-            contributions[msg.sender].badges.push(badgeId);
             _safeMint(msg.sender, badgeId);
         }
     }

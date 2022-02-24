@@ -61,18 +61,16 @@ describe("Crowdfundr", () => {
   it("allows contributors to contribute", async () => {
     expect(await crowdfundr.contributed()).to.equal(parseEther("0"));
     await crowdfundr.connect(jenny).contribute({value: parseEther("1")});
-    await crowdfundr.connect(jenny).contribute({value: parseEther("1")});
-    expect(await crowdfundr.contributed()).to.equal(parseEther("2"));
+    expect(await crowdfundr.contributions(jenny.address)).to.equal(parseEther("1"));
 
-    // will only return contribution.total, not contribution.badges
-    // ok to rely on that for testing?
-    // const result = await crowdfundr.contributions(jenny.address);
-    // console.log("result", result)
+    await crowdfundr.connect(jenny).contribute({value: parseEther("1")});
+    expect(await crowdfundr.contributions(jenny.address)).to.equal(parseEther("2"));
+    expect(await crowdfundr.contributed()).to.equal(parseEther("2"));
   });
 
   it("requires a minimum donation of 0.01 ETH", async () => {
-    await expect(crowdfundr.connect(larry).contribute({value: parseEther("0.009")})).to.be.revertedWith("Must meet minimum donation")
-  })
+    await expect(crowdfundr.connect(larry).contribute({value: parseEther("0.009")})).to.be.revertedWith("Must meet minimum donation");
+  });
 
   it("allows contributors to withdraw funds after cancellation", async () => {
     await crowdfundr.connect(larry).contribute({value: parseEther("2")});
