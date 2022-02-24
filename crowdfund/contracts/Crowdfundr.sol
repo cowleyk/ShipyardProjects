@@ -25,7 +25,7 @@ contract Crowdfundr is ERC721 {
         ERC721("ContributorBadge", "BDG")
     {
         require(_creator != address(0), "Must provide a creator address");
-        require(_goal > 0, "Don't waste gas");
+        require(_goal > 0, "Provide a fundraising goal");
         creator = payable(_creator);
         goal = _goal;
         deadline = block.timestamp + 30 days;
@@ -39,7 +39,6 @@ contract Crowdfundr is ERC721 {
     }
 
     modifier hasEnded() {
-        // use `assert` or other form?
         require(
             ended || (contributed < goal && block.timestamp > deadline),
             "The campaign is still active"
@@ -67,11 +66,13 @@ contract Crowdfundr is ERC721 {
         require(success, "Failed to withdraw");
     }
 
-    // Cannot restart a campaign => no need to update `contributed` or `contributions[msg.sender]`
+    // Cannot restart a campaign => no need to update `contributed`
     function withdrawContribution() external hasEnded {
-        (bool success, ) = msg.sender.call{
-            value: contributions[msg.sender].total
-        }("");
+        require(contributions[msg.sender].total > 0, "No contribution to withdraw");
+
+        uint256 withdrawal = contributions[msg.sender].total;
+        contributions[msg.sender].total = 0;
+        (bool success, ) = msg.sender.call{ value: withdrawal }("");
         require(success, "Failed to withdraw");
     }
 
@@ -81,9 +82,11 @@ contract Crowdfundr is ERC721 {
         contributions[msg.sender].total += msg.value;
         contributed += msg.value;
 
+        // Calculate contribution amount that has not already been rewarded a badge
         uint256 amountToReward = contributions[msg.sender].total -
             (contributions[msg.sender].badges.length * 1 ether);
-        while (amountToReward >= 1 ether) {
+        // For every ether that has not been rewarded, mint a new contribution badge
+        while (amountToReward >= 1 ether) { 
             amountToReward -= 1 ether;
             _tokenIds.increment();
             uint256 badgeId = _tokenIds.current();
@@ -92,6 +95,3 @@ contract Crowdfundr is ERC721 {
         }
     }
 }
-// multitoken-standard erc1155 has bulk mint :eyes:
-// proxy contract
-// https://discord.com/channels/870313767873962014/945737533340405780/946073897336438824
