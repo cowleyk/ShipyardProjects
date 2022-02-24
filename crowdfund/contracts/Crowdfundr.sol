@@ -24,6 +24,8 @@ contract Crowdfundr is ERC721 {
 
 
   constructor(address _creator, uint _goal) ERC721("ContributorBadge", "BDG") {
+    require(_creator != address(0), "Must provide a creator address");
+    require(_goal > 0, "Don't waste gas");
     creator = payable(_creator);
     goal = _goal;
     deadline = block.timestamp + 30 days;
@@ -47,14 +49,14 @@ contract Crowdfundr is ERC721 {
     _;
   }
 
-  function endCampaign() public isActive isCreator {
+  function endCampaign() external isActive isCreator {
     ended = true;
   }
 
   // since only the creator can withdraw, is a nonReentrant modifier needed?
   // "defense in depth" - could add nonReentrant
   // weary of optimization
-  function withdrawFunds(uint withdrawalAmount) public isCreator {
+  function withdrawFunds(uint withdrawalAmount) external isCreator {
     require(contributed >= goal, "Goal has not been met");
 
     contributed -= withdrawalAmount;
@@ -63,12 +65,12 @@ contract Crowdfundr is ERC721 {
   }
   
   // Cannot restart a campaign => no need to update `contributed` or `contributions[msg.sender]`
-  function withdrawContribution() public hasEnded {
+  function withdrawContribution() external hasEnded {
     (bool success, ) = msg.sender.call{value: contributions[msg.sender].total}("");
     require(success, "Failed to withdraw");
   }
 
-  function contribute() public payable isActive {
+  function contribute() external payable isActive {
     require(msg.value >= 0.01 ether, "Must meet minimum donation");
 
     contributions[msg.sender].total += msg.value;
@@ -86,7 +88,7 @@ contract Crowdfundr is ERC721 {
   }
 
   // convience function: DELETE LATER  
-  function getBadges() public view returns(uint[] memory) {
+  function getBadges() external view returns(uint[] memory) {
     return contributions[msg.sender].badges;
   }
 }
