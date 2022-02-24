@@ -98,7 +98,16 @@ describe("Crowdfundr", () => {
   const increaseTime = async (seconds: number): Promise<void> => {
     await hre.network.provider.send("evm_increaseTime", [seconds]);
     await hre.network.provider.send("evm_mine");
-  }
+  };
+
+  it("allows contributors to withdraw only their contribution amount", async () => {
+    await crowdfundr.connect(larry).contribute({value: parseEther("2")});
+    await crowdfundr.connect(jenny).contribute({value: parseEther("2")});
+    await crowdfundr.connect(creator).endCampaign();
+
+    await expect(await crowdfundr.connect(larry).withdrawContribution()).to.changeEtherBalance(larry, parseEther("2"));
+    await expect(crowdfundr.connect(larry).withdrawContribution()).to.be.revertedWith("No contribution to withdraw");
+  });
 
   it("does not allow withdrawal unless conditions are met", async () => {
     await crowdfundr.connect(larry).contribute({value: parseEther("2")});
