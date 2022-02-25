@@ -2,19 +2,19 @@ import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { Crowdfundr } from "../typechain";
+import { BigNumber } from "ethers";
 const { utils: { parseEther } } = ethers;
 const { constants: { ZERO_ADDRESS } } = require("@openzeppelin/test-helpers");
 
 describe("Crowdfundr", () => {
   let crowdfundr: Crowdfundr;
-  let deployer: SignerWithAddress;
   let creator: SignerWithAddress;
   let larry: SignerWithAddress;
   let jenny: SignerWithAddress;
   let addrs: SignerWithAddress[];
 
   beforeEach(async () => {
-    [deployer, creator, larry, jenny, ...addrs] = await ethers.getSigners();
+    [creator, larry, jenny, ...addrs] = await ethers.getSigners();
     const crowdfundrFactory = await ethers.getContractFactory("Crowdfundr");
     crowdfundr = await crowdfundrFactory.deploy(creator.address, parseEther("5"));
     await crowdfundr.deployed();
@@ -129,8 +129,14 @@ describe("Crowdfundr", () => {
   it("awards another NFT for each 1ETH donated", async () => {
     expect(await crowdfundr.connect(jenny).balanceOf(jenny.address)).to.equal(0);
     await crowdfundr.connect(jenny).contribute({value: parseEther("1.6")});
+
     expect(await crowdfundr.connect(jenny).balanceOf(jenny.address)).to.equal(1);
+    let badges = await crowdfundr.connect(jenny).getBadgesByOwner(jenny.address);
+    expect(badges).to.deep.equal([BigNumber.from(1)])
+
     await crowdfundr.connect(jenny).contribute({value: parseEther("1.7")});
     expect(await crowdfundr.connect(jenny).balanceOf(jenny.address)).to.equal(3);
+    badges = await crowdfundr.connect(jenny).getBadgesByOwner(jenny.address);
+    expect(badges).to.deep.equal([ BigNumber.from(1), BigNumber.from(2), BigNumber.from(3) ])
   });
 });

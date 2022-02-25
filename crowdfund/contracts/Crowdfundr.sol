@@ -89,4 +89,16 @@ contract Crowdfundr is ERC721 {
             _safeMint(msg.sender, badgeId);
         }
     }
+
+    function getBadgesByOwner(address _owner) external view returns(uint[] memory) {
+        uint[] memory result = new uint[](balanceOf(_owner));
+        uint counter = 0;
+        for (uint i = 1; i < _tokenIds.current() + 1; i++) {
+            if (ownerOf(i) == _owner) {
+                result[counter] = i;
+                counter++;
+            }
+        }
+        return result;
+    }
 }
