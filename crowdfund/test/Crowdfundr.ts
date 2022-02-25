@@ -173,5 +173,5 @@ describe("Crowdfundr", () => {
         const larryBadges = await crowdfundr.getBadgesByOwner(larry.address);
         expect(jennyBadges).to.deep.equal([ BigNumber.from(1), BigNumber.from(3) ])
         expect(larryBadges).to.deep.equal([ BigNumber.from(2) ])
-    })
+    });
 });

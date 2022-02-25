@@ -86,7 +86,11 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
     }
 
     // Cannot restart a campaign => no need to update `contributed`
-    function withdrawContribution() external canWithdrawContribution nonReentrant {
+    function withdrawContribution()
+        external
+        canWithdrawContribution
+        nonReentrant
+    {
         require(contributions[msg.sender] > 0, "No contribution to withdraw");
 
         uint256 withdrawal = contributions[msg.sender];
@@ -100,7 +104,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
 
         contributions[msg.sender] += msg.value;
         contributed += msg.value;
-        if(contributed >= goal) {
+        if (contributed >= goal) {
             goalMet = true;
         }
 
