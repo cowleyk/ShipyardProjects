@@ -65,6 +65,26 @@ describe("Crowdfundr", () => {
         expect(await crowdfundr.cancelledByCreator()).to.equal(false);
     });
 
+    it("the campaign cannot be cancelled after reaching the contribution goal", async () => {
+        await crowdfundr.connect(jenny).contribute({value: parseEther("6")});
+        await expect(crowdfundr.connect(creator).cancelCampaign())
+            .to.be.revertedWith("The campaign has ended")
+    });
+
+    it("the campaign cannot be cancelled after the deadline has passed", async () => {
+        // advance time 31 days
+        await increaseTime(60*60*24*31);
+        await expect(crowdfundr.connect(creator).cancelCampaign())
+            .to.be.revertedWith("The campaign has ended")
+    });
+
+    it("The campaign cannot be cancelled twice", async () => {
+        await crowdfundr.connect(creator).cancelCampaign();
+        expect(await crowdfundr.cancelledByCreator()).to.equal(true);it
+        await expect(crowdfundr.connect(creator).cancelCampaign())
+            .to.be.revertedWith("The campaign has ended")
+    });
+
     // Contributor functionality
     it("allows contributors to contribute", async () => {
         expect(await crowdfundr.contributed()).to.equal(parseEther("0"));
@@ -105,11 +125,6 @@ describe("Crowdfundr", () => {
         await expect(await crowdfundr.connect(jenny).withdrawContribution())
             .to.changeEtherBalance(jenny, parseEther("2"));
     });
-
-    const increaseTime = async (seconds: number): Promise<void> => {
-        await hre.network.provider.send("evm_increaseTime", [seconds]);
-        await hre.network.provider.send("evm_mine");
-    };
 
     it("allows contributors to withdraw only their contribution amount", async () => {
         await crowdfundr.connect(larry).contribute({value: parseEther("2")});
@@ -174,4 +189,10 @@ describe("Crowdfundr", () => {
         expect(jennyBadges).to.deep.equal([ BigNumber.from(1), BigNumber.from(3) ])
         expect(larryBadges).to.deep.equal([ BigNumber.from(2) ])
     });
+
+    // Helper function
+    const increaseTime = async (seconds: number): Promise<void> => {
+        await hre.network.provider.send("evm_increaseTime", [seconds]);
+        await hre.network.provider.send("evm_mine");
+    };
 });

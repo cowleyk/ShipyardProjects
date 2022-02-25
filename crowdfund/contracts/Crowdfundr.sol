@@ -42,13 +42,13 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
     /// @dev Initializes ID counter for contribution badge
     uint256 private _tokenId = 0;
 
-    address payable immutable creator;
-    uint256 immutable goal;
+    address payable public creator;
+    uint256 public goal;
     /// @notice total amount contributed to the campaign
     uint256 public contributed;
     /// @notice timestamp when the campaign must have reached its funding
         /// or it will be cancelled
-    uint256 immutable deadline;
+    uint256 public deadline;
     /// @dev bool toggled when the campaign is manually cancelled
     bool public cancelledByCreator;
     /// @notice whether the contributions have reached the goal
