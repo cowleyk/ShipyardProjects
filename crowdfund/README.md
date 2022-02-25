@@ -46,9 +46,12 @@ How would you design your contract to support this, without creating three separ
 ```
 
 ### Token Array
+
 *Approach ERC271 token similar to cryptozombies*
-In our prework, cryptozombies implemented a ERC271 standard for the `Zombie` created in the game.
-This was done by storing an array `Zombie[] public zombies;`, where the zombie ID was the index of the array.
-If the only additional feature of the token is it's teir, this approach can be simplified by using an array `uint256[] public tokens;`, where the token ID is the array's index, and the tier is the value stored in the array.
-eg: `[1, 2, 1, 3, 2, 3]`
-Instead of using a counter variable to generate a token ID, the return value from  `uint256 tokenId = tokens.push(tier)` would be stored in a `mapping(uint256 => address) public tokenToOwner`
+
+- Cryptozombies implemented a ERC271 standard for the `Zombie` created in the game.
+- Cryptozombies stored an array `Zombie[] public zombies;`, where the zombie ID was the index of the array.
+- We can simplifiy this approach by using an array `uint256[] public tokens;`
+  - The token ID is the array's index, and the tier is the value stored in the array.
+  - eg: `[1, 2, 1, 3, 2, 3]`
+- Instead of using a counter variable to generate a token ID, the return value from  `uint256 tokenId = tokens.push(tier)` would be stored in a `mapping(uint256 => address) public tokenToOwner`
