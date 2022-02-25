@@ -26,7 +26,7 @@ describe("Crowdfundr", () => {
         await expect(crowdfundrFactory.deploy(ZERO_ADDRESS, parseEther("5")))
             .to.be.revertedWith("Must provide a creator address");
         await expect(crowdfundrFactory.deploy(creator.address, parseEther("0")))
-            .to.be.revertedWith("Provide a fundraising goal");
+            .to.be.revertedWith("Goal must be meet min donation");
     })
 
     // Creator functionality
@@ -81,7 +81,7 @@ describe("Crowdfundr", () => {
     it("allows contributors to withdraw funds after cancellation", async () => {
         await crowdfundr.connect(larry).contribute({value: parseEther("2")});
         await expect(crowdfundr.connect(larry).withdrawContribution())
-            .to.be.revertedWith("The campaign is still active");
+            .to.be.revertedWith("Withdrawals are locked");
         await crowdfundr.connect(creator).endCampaign();
 
         await expect(await crowdfundr.connect(larry).withdrawContribution())
@@ -91,12 +91,12 @@ describe("Crowdfundr", () => {
     it("allows contributors to withdraw funds after 30 days if goal is not met", async () => {
         await crowdfundr.connect(jenny).contribute({value: parseEther("2")});
         await expect(crowdfundr.connect(larry).withdrawContribution())
-            .to.be.revertedWith("The campaign is still active");
+            .to.be.revertedWith("Withdrawals are locked");
 
         // advance time 15 days
         await increaseTime(60*60*24*15);
         await expect(crowdfundr.connect(larry).withdrawContribution())
-            .to.be.revertedWith("The campaign is still active");
+            .to.be.revertedWith("Withdrawals are locked");
 
         // advance time another 15 days (30 days after deployment)
         await increaseTime(60*60*24*15);
@@ -120,10 +120,14 @@ describe("Crowdfundr", () => {
             .to.be.revertedWith("No contribution to withdraw");
     });
 
+    it("does not allow withdrawal if the contribution goal is met", async () => {
+
+    })
+
     it("does not allow withdrawal unless conditions are met", async () => {
         await crowdfundr.connect(larry).contribute({value: parseEther("2")});
         await expect(crowdfundr.connect(larry).withdrawContribution())
-            .to.be.revertedWith("The campaign is still active");
+            .to.be.revertedWith("Withdrawals are locked");
     });
 
     // NFT awarding

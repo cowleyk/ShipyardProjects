@@ -43,7 +43,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         ERC721("ContributorBadge", "BDG")
     {
         require(_creator != address(0), "Must provide a creator address");
-        require(_goal > 0, "Provide a fundraising goal");
+        require(_goal >= 0.01 ether, "Goal must be meet min donation");
         creator = payable(_creator);
         goal = _goal;
         deadline = block.timestamp + 30 days;
@@ -56,10 +56,10 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         _;
     }
 
-    modifier hasEnded() {
+    modifier canWithdrawContribution() {
         require(
             ended || (contributed < goal && block.timestamp > deadline),
-            "The campaign is still active"
+            "Withdrawals are locked"
         );
         _;
     }
@@ -85,7 +85,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
     }
 
     // Cannot restart a campaign => no need to update `contributed`
-    function withdrawContribution() external hasEnded nonReentrant {
+    function withdrawContribution() external canWithdrawContribution nonReentrant {
         require(contributions[msg.sender] > 0, "No contribution to withdraw");
 
         uint256 withdrawal = contributions[msg.sender];
