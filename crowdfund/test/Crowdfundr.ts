@@ -163,4 +163,15 @@ describe("Crowdfundr", () => {
         badges = await crowdfundr.connect(jenny).getBadgesByOwner(jenny.address);
         expect(badges).to.deep.equal([ BigNumber.from(1), BigNumber.from(2), BigNumber.from(3) ])
     });
+
+    it("retreives badges by owner", async () => {
+        await crowdfundr.connect(jenny).contribute({value: parseEther("1")});
+        await crowdfundr.connect(larry).contribute({value: parseEther("1")});
+        await crowdfundr.connect(jenny).contribute({value: parseEther("1")});
+
+        const jennyBadges = await crowdfundr.getBadgesByOwner(jenny.address);
+        const larryBadges = await crowdfundr.getBadgesByOwner(larry.address);
+        expect(jennyBadges).to.deep.equal([ BigNumber.from(1), BigNumber.from(3) ])
+        expect(larryBadges).to.deep.equal([ BigNumber.from(2) ])
+    })
 });
