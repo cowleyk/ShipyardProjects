@@ -35,7 +35,8 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
     uint256 public goal;
     uint256 public contributed;
     uint256 public deadline;
-    bool public ended;
+    bool public cancelledByCreator;
+    bool public goalMet;
 
     mapping(address => uint256) public contributions;
 
@@ -50,7 +51,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
     }
 
     modifier isActive() {
-        require(!ended, "The campaign has ended");
+        require(!cancelledByCreator, "The campaign has ended");
         require(block.timestamp < deadline, "The campaign has ended");
         require(contributed < goal, "The campaign has ended");
         _;
@@ -58,7 +59,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
 
     modifier canWithdrawContribution() {
         require(
-            ended || (contributed < goal && block.timestamp > deadline),
+            cancelledByCreator || (!goalMet && block.timestamp > deadline),
             "Withdrawals are locked"
         );
         _;
@@ -69,15 +70,15 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         _;
     }
 
-    function endCampaign() external isActive isCreator {
-        ended = true;
+    function cancelCampaign() external isActive isCreator {
+        cancelledByCreator = true;
     }
 
     // since only the creator can withdraw, is a nonReentrant modifier needed?
     // "defense in depth" - could add nonReentrant
     // weary of optimization
     function withdrawFunds(uint256 _withdrawalAmount) external isCreator {
-        require(contributed >= goal, "Goal has not been met");
+        require(goalMet, "Goal has not been met");
 
         contributed -= _withdrawalAmount;
         (bool success, ) = creator.call{value: _withdrawalAmount}("");
@@ -99,6 +100,9 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
 
         contributions[msg.sender] += msg.value;
         contributed += msg.value;
+        if(contributed >= goal) {
+            goalMet = true;
+        }
 
         // Calculate contribution amount that has not already been rewarded a badge
         uint256 amountToReward = contributions[msg.sender] -

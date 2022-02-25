@@ -34,8 +34,10 @@ describe("Crowdfundr", () => {
         await crowdfundr.connect(larry).contribute({value: parseEther("2")});
         await crowdfundr.connect(jenny).contribute({value: parseEther("4")});
 
-        await expect(await crowdfundr.connect(creator).withdrawFunds(parseEther("4")))
-            .to.changeEtherBalance(creator, parseEther("4"));
+        await expect(await crowdfundr.connect(creator).withdrawFunds(parseEther("2")))
+            .to.changeEtherBalance(creator, parseEther("2"));
+        await expect(await crowdfundr.connect(creator).withdrawFunds(parseEther("2")))
+            .to.changeEtherBalance(creator, parseEther("2"));
     });
 
     it("prevents the creator from withdrawing funds until the goal is met", async () => {
@@ -53,14 +55,14 @@ describe("Crowdfundr", () => {
     });
 
     it("allows the creator to cancel the campaign", async () => {
-        await crowdfundr.connect(creator).endCampaign();
-        expect(await crowdfundr.ended()).to.equal(true);
+        await crowdfundr.connect(creator).cancelCampaign();
+        expect(await crowdfundr.cancelledByCreator()).to.equal(true);
     });
 
     it("allows only the creator to cancel the campaign", async () => {
-        await expect(crowdfundr.connect(larry).endCampaign())
+        await expect(crowdfundr.connect(larry).cancelCampaign())
             .to.be.revertedWith("Must be campaign creator")
-        expect(await crowdfundr.ended()).to.equal(false);
+        expect(await crowdfundr.cancelledByCreator()).to.equal(false);
     });
 
     // Contributor functionality
@@ -82,7 +84,7 @@ describe("Crowdfundr", () => {
         await crowdfundr.connect(larry).contribute({value: parseEther("2")});
         await expect(crowdfundr.connect(larry).withdrawContribution())
             .to.be.revertedWith("Withdrawals are locked");
-        await crowdfundr.connect(creator).endCampaign();
+        await crowdfundr.connect(creator).cancelCampaign();
 
         await expect(await crowdfundr.connect(larry).withdrawContribution())
             .to.changeEtherBalance(larry, parseEther("2"));
@@ -112,7 +114,7 @@ describe("Crowdfundr", () => {
     it("allows contributors to withdraw only their contribution amount", async () => {
         await crowdfundr.connect(larry).contribute({value: parseEther("2")});
         await crowdfundr.connect(jenny).contribute({value: parseEther("2")});
-        await crowdfundr.connect(creator).endCampaign();
+        await crowdfundr.connect(creator).cancelCampaign();
 
         await expect(await crowdfundr.connect(larry).withdrawContribution())
             .to.changeEtherBalance(larry, parseEther("2"));
@@ -120,14 +122,18 @@ describe("Crowdfundr", () => {
             .to.be.revertedWith("No contribution to withdraw");
     });
 
-    it("does not allow withdrawal if the contribution goal is met", async () => {
-
-    })
-
-    it("does not allow withdrawal unless conditions are met", async () => {
-        await crowdfundr.connect(larry).contribute({value: parseEther("2")});
+    it("does not allow contribution withdrawal if the contribution goal is met", async () => {
+        await crowdfundr.connect(larry).contribute({value: parseEther("3")});
+        await crowdfundr.connect(jenny).contribute({value: parseEther("2")});
         await expect(crowdfundr.connect(larry).withdrawContribution())
             .to.be.revertedWith("Withdrawals are locked");
+    });
+
+    it("sets toggles goalMet when contributions reach goal", async () => {
+        expect(await crowdfundr.goalMet()).to.be.false;
+        await crowdfundr.connect(larry).contribute({value: parseEther("3")});
+        await crowdfundr.connect(jenny).contribute({value: parseEther("3")});
+        expect(await crowdfundr.goalMet()).to.be.true;
     });
 
     // NFT awarding
