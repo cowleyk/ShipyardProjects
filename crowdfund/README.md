@@ -1,46 +1,51 @@
-# Advanced Sample Hardhat Project
+# Week 1 Crowdfundr Project
 
-This project demonstrates an advanced Hardhat use case, integrating other tools commonly used alongside Hardhat in the ecosystem.
+## My Spec
+### Creators:
+- Set up a smart contract to gather funds for a project
+- Set a target contribution goal
+- Withdraw funds once target is met
+- Option to cancel the campaign
+- If the target is not reached within 30 days the campaign is cancelled
 
-The project comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts. It also comes with a variety of other tools, preconfigured to work with the project code.
+### Contributors:
+- Contribute at least 0.01ETH with no maximum
+- Earn a transferable contribution badge (NFT) for every 1ETH contributed
+- Withdraw contributions if the campaign is cancelled or the target funding is not reached
 
-Try running some of the following tasks:
+## Official Spec
+- The smart contract is reusable; multiple projects can be registered and accept ETH concurrently.
+  - Specifically, you should use the factory contract pattern.
+- The goal is a preset amount of ETH.
+  - This cannot be changed after a project gets created.
+- Regarding contributing:
+  - The contribute amount must be at least 0.01 ETH.
+  - There is no upper limit.
+  - Anyone can contribute to the project, including the creator.
+  - One address can contribute as many times as they like.
+  - No one can withdraw their funds until the project either fails or gets cancelled.
+- Regarding contributer badges:
+  - An address receives a badge if their **total contribution** is at least 1 ETH.
+  - One address can receive multiple badges, but should only receive 1 badge per 1 ETH.
+- If the project is not fully funded within 30 days:
+  - The project goal is considered to have failed.
+  - No one can contribute anymore.
+  - Supporters get their money back.
+  - Contributor badges are left alone. They should still be tradable.
+- Once a project becomes fully funded:
+  - No one else can contribute (however, the last contribution can go over the goal).
+  - The creator can withdraw any amount of contributed funds.
+- The creator can choose to cancel their project before the 30 days are over, which has the same effect as a project failing.
 
-```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-npx hardhat help
-REPORT_GAS=true npx hardhat test
-npx hardhat coverage
-npx hardhat run scripts/deploy.ts
-TS_NODE_FILES=true npx ts-node scripts/deploy.ts
-npx eslint '**/*.{js,ts}'
-npx eslint '**/*.{js,ts}' --fix
-npx prettier '**/*.{json,sol,md}' --check
-npx prettier '**/*.{json,sol,md}' --write
-npx solhint 'contracts/**/*.sol'
-npx solhint 'contracts/**/*.sol' --fix
+## Design Exercise
+```
+Smart contracts have a hard limit of 24kb. Crowdfundr hands out an NFT to everyone who contributes. However, consider how Kickstarter has multiple contribution tiers. How would you design your contract to support this, without creating three separate NFT contracts?
 ```
 
-# Etherscan verification
-
-To try out Etherscan verification, you first need to deploy a contract to an Ethereum network that's supported by Etherscan, such as Ropsten.
-
-In this project, copy the .env.example file to a file named .env, and then edit it to fill in the details. Enter your Etherscan API key, your Ropsten node URL (eg from Alchemy), and the private key of the account which will send the deployment transaction. With a valid .env file in place, first deploy your contract:
-
-```shell
-hardhat run --network ropsten scripts/sample-script.ts
-```
-
-Then, copy the deployment address and paste it in to replace `DEPLOYED_CONTRACT_ADDRESS` in this command:
-
-```shell
-npx hardhat verify --network ropsten DEPLOYED_CONTRACT_ADDRESS "Hello, Hardhat!"
-```
-
-# Performance optimizations
-
-For faster runs of your tests and scripts, consider skipping ts-node's type checking by setting the environment variable `TS_NODE_TRANSPILE_ONLY` to `1` in hardhat's environment. For more details see [the documentation](https://hardhat.org/guides/typescript.html#performance-optimizations).
+### Token Array
+* Approach ERC271 similar to cryptozombies *
+In our prework, cryptozombies implemented a ERC271 standard for the `Zombie` created in the game.
+This was done by storing an array `Zombie[] public zombies;`, where the zombie ID was the index of the array.
+If the only additional feature of the token is it's teir, this approach can be simplified by using an array `uint256[] public tokens;`, where the token ID is the array's index, and the tier is the value stored in the array.
+eg: `[1, 2, 1, 3, 2, 3]`
+Instead of using a counter variable to generate a token ID, the return value from  `uint256 tokenId = tokens.push(tier)` would be stored in a `mapping(uint256 => address) public tokenToOwner`
