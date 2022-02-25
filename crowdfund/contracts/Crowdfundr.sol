@@ -8,17 +8,24 @@ contract CampaignFactory {
     event CampaignCreated(address _creator, address _campaign);
     Crowdfundr[] public campaigns;
 
-    function createCampaign(address _creator, uint256 _goal) external returns(address) {
+    function createCampaign(address _creator, uint256 _goal)
+        external
+        returns (address)
+    {
         Crowdfundr newCampaign = new Crowdfundr(_creator, _goal);
         campaigns.push(newCampaign);
         emit CampaignCreated(_creator, address(newCampaign));
         return address(newCampaign);
     }
 
-    function getCampaigns() external view returns(Crowdfundr[] memory _campaigns){
-       _campaigns = new Crowdfundr[](campaigns.length);
-       return campaigns;
-     }
+    function getCampaigns()
+        external
+        view
+        returns (Crowdfundr[] memory _campaigns)
+    {
+        _campaigns = new Crowdfundr[](campaigns.length);
+        return campaigns;
+    }
 }
 
 contract Crowdfundr is ERC721, ReentrancyGuard {
@@ -83,7 +90,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
 
         uint256 withdrawal = contributions[msg.sender];
         contributions[msg.sender] = 0;
-        (bool success, ) = msg.sender.call{ value: withdrawal }("");
+        (bool success, ) = msg.sender.call{value: withdrawal}("");
         require(success, "Failed to withdraw");
     }
 
@@ -97,17 +104,21 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         uint256 amountToReward = contributions[msg.sender] -
             (balanceOf(msg.sender) * 1 ether);
         // For every ether that has not been rewarded, mint a new contribution badge
-        while (amountToReward >= 1 ether) { 
+        while (amountToReward >= 1 ether) {
             amountToReward -= 1 ether;
             _tokenId++;
             _safeMint(msg.sender, _tokenId);
         }
     }
 
-    function getBadgesByOwner(address _owner) external view returns(uint[] memory) {
-        uint[] memory result = new uint[](balanceOf(_owner));
-        uint counter = 0;
-        for (uint i = 1; i < _tokenId + 1; i++) {
+    function getBadgesByOwner(address _owner)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        uint256[] memory result = new uint256[](balanceOf(_owner));
+        uint256 counter = 0;
+        for (uint256 i = 1; i < _tokenId + 1; i++) {
             if (ownerOf(i) == _owner) {
                 result[counter] = i;
                 counter++;
