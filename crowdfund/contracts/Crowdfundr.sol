@@ -4,10 +4,17 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+/// @title A factory for creating Crowdfundr campaigns
+/// @author Kevin Cowley
+/// @dev All calls to createCampaign need a _creator parameter
 contract CampaignFactory {
     event CampaignCreated(address _creator, address _campaign);
     Crowdfundr[] public campaigns;
 
+    /// @notice Deploy a new Crowdfund campaign
+    /// @param _creator Address of the designated creator
+    /// @param _goal Contribution goal in WEI
+    /// @return Address of the deployed campaign
     function createCampaign(address _creator, uint256 _goal)
         external
         returns (address)
@@ -18,6 +25,7 @@ contract CampaignFactory {
         return address(newCampaign);
     }
 
+    /// @return _campaigns List of deployed campaign
     function getCampaigns()
         external
         view
@@ -28,16 +36,25 @@ contract CampaignFactory {
     }
 }
 
+/// @title A campaign to collect funds for an idea
+/// @author Kevin Cowley
 contract Crowdfundr is ERC721, ReentrancyGuard {
+    /// @dev Initializes ID counter for contribution badge
     uint256 private _tokenId = 0;
 
-    address payable public creator;
-    uint256 public goal;
+    address payable immutable creator;
+    uint256 immutable goal;
+    /// @notice total amount contributed to the campaign
     uint256 public contributed;
-    uint256 public deadline;
+    /// @notice timestamp when the campaign must have reached its funding
+        /// or it will be cancelled
+    uint256 immutable deadline;
+    /// @dev bool toggled when the campaign is manually cancelled
     bool public cancelledByCreator;
+    /// @notice whether the contributions have reached the goal
     bool public goalMet;
 
+    /// @notice storage of each contributer's total contribution in WEI
     mapping(address => uint256) public contributions;
 
     constructor(address _creator, uint256 _goal)
@@ -50,13 +67,18 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         deadline = block.timestamp + 30 days;
     }
 
+    /// @notice check if the campaign is still receiving contributions 
     modifier isActive() {
         require(!cancelledByCreator, "The campaign has ended");
+        /// make sure the current time is before the deadline
         require(block.timestamp < deadline, "The campaign has ended");
         require(contributed < goal, "The campaign has ended");
         _;
     }
 
+    /// @notice check if contributors can pull back their contribution
+        /// the campaign must have either been cancelled or 
+        /// failed to reach the goal before the deadline
     modifier canWithdrawContribution() {
         require(
             cancelledByCreator || (!goalMet && block.timestamp > deadline),
@@ -70,13 +92,17 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         _;
     }
 
+    /// @notice creator can end the campaign early
     function cancelCampaign() external isActive isCreator {
         cancelledByCreator = true;
     }
 
-    // since only the creator can withdraw, is a nonReentrant modifier needed?
-    // "defense in depth" - could add nonReentrant
-    // weary of optimization
+    /// @notice allow creator to collect the funds once the goal has been met
+    /// @dev no reentrancy guard was added; the creator is allowed to draw down the funds to 0
+        /// reentrancy by the creator is a valid use case
+    /// @dev once there campaign is over there is technnically no need to continue updating
+        /// `contributed` or `contributions`, but the public `contributed` will give the
+        /// an idea of how much is left in the contract
     function withdrawFunds(uint256 _withdrawalAmount) external isCreator {
         require(goalMet, "Goal has not been met");
 
@@ -85,7 +111,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         require(success, "Failed to withdraw");
     }
 
-    // Cannot restart a campaign => no need to update `contributed`
+    /// @notice allow contributors to recoup their contributions after a contract fails
     function withdrawContribution()
         external
         canWithdrawContribution
@@ -94,24 +120,27 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         require(contributions[msg.sender] > 0, "No contribution to withdraw");
 
         uint256 withdrawal = contributions[msg.sender];
+        /// @dev setting contributions to 0 prevents contributors from withdrawing multiple times
         contributions[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: withdrawal}("");
         require(success, "Failed to withdraw");
     }
 
+    /// @notice contribute funds to the campaign and earn a badge for every 1 ETH
     function contribute() external payable isActive {
         require(msg.value >= 0.01 ether, "Must meet minimum donation");
 
         contributions[msg.sender] += msg.value;
         contributed += msg.value;
+        /// @dev permanently toggles goalMet
         if (contributed >= goal) {
             goalMet = true;
         }
 
-        // Calculate contribution amount that has not already been rewarded a badge
+        /// @dev calculate amount of total contributions that has not already been rewarded a badge
         uint256 amountToReward = contributions[msg.sender] -
             (balanceOf(msg.sender) * 1 ether);
-        // For every ether that has not been rewarded, mint a new contribution badge
+        /// @dev for every 1 ether that has not already been rewarded, mint a new contribution badge
         while (amountToReward >= 1 ether) {
             amountToReward -= 1 ether;
             _tokenId++;
@@ -119,19 +148,21 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         }
     }
 
+    /// @param _owner address to check for badges
+    /// @return list of badges owned by address
     function getBadgesByOwner(address _owner)
         external
         view
         returns (uint256[] memory)
     {
-        uint256[] memory result = new uint256[](balanceOf(_owner));
+        uint256[] memory badges = new uint256[](balanceOf(_owner));
         uint256 counter = 0;
         for (uint256 i = 1; i < _tokenId + 1; i++) {
             if (ownerOf(i) == _owner) {
-                result[counter] = i;
+                badges[counter] = i;
                 counter++;
             }
         }
-        return result;
+        return badges;
     }
 }
