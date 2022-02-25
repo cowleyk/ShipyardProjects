@@ -76,11 +76,11 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
     // since only the creator can withdraw, is a nonReentrant modifier needed?
     // "defense in depth" - could add nonReentrant
     // weary of optimization
-    function withdrawFunds(uint256 withdrawalAmount) external isCreator {
+    function withdrawFunds(uint256 _withdrawalAmount) external isCreator {
         require(contributed >= goal, "Goal has not been met");
 
-        contributed -= withdrawalAmount;
-        (bool success, ) = creator.call{value: withdrawalAmount}("");
+        contributed -= _withdrawalAmount;
+        (bool success, ) = creator.call{value: _withdrawalAmount}("");
         require(success, "Failed to withdraw");
     }
 
