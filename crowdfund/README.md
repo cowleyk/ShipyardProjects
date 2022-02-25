@@ -39,11 +39,14 @@
 
 ## Design Exercise
 ```
-Smart contracts have a hard limit of 24kb. Crowdfundr hands out an NFT to everyone who contributes. However, consider how Kickstarter has multiple contribution tiers. How would you design your contract to support this, without creating three separate NFT contracts?
+Smart contracts have a hard limit of 24kb.
+Crowdfundr hands out an NFT to everyone who contributes.
+However, consider how Kickstarter has multiple contribution tiers.
+How would you design your contract to support this, without creating three separate NFT contracts?
 ```
 
 ### Token Array
-* Approach ERC271 similar to cryptozombies *
+*Approach ERC271 token similar to cryptozombies*
 In our prework, cryptozombies implemented a ERC271 standard for the `Zombie` created in the game.
 This was done by storing an array `Zombie[] public zombies;`, where the zombie ID was the index of the array.
 If the only additional feature of the token is it's teir, this approach can be simplified by using an array `uint256[] public tokens;`, where the token ID is the array's index, and the tier is the value stored in the array.
