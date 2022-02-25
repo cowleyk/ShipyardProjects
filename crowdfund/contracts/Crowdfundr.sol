@@ -121,7 +121,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
 
         uint256 withdrawal = contributions[msg.sender];
         /// @dev setting contributions to 0 prevents contributors from withdrawing multiple times
-        contributions[msg.sender] = 0;
+        delete contributions[msg.sender];
         (bool success, ) = msg.sender.call{value: withdrawal}("");
         require(success, "Failed to withdraw");
     }
