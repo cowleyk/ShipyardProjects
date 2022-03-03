@@ -2,7 +2,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SpaceCoin } from "../typechain";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-const { constants: { ZERO_ADDRESS } } = require("@openzeppelin/test-helpers");
 const { utils: { parseEther } } = ethers;
 
 
@@ -16,11 +15,31 @@ describe("SpaceCoin", function () {
     beforeEach(async () => {
         [creator, larry, jenny, ...addrs] = await ethers.getSigners();
         const spaceCoinFactory = await ethers.getContractFactory("SpaceCoin");
-        spaceCoin = await spaceCoinFactory.deploy(creator.address);
+        spaceCoin = await spaceCoinFactory.deploy();
         await spaceCoin.deployed();
     });
 
-    it("treasury can toggle tax on and off", async () => {});
-    it("only treasury can toggle tax", async () => {});
-    it("collects aside 2% tax on all transfers when toggled on", async () => {});
+    it("treasury can toggle tax on and off", async () => {
+        expect(await spaceCoin.collectTaxes()).to.be.false;
+        await spaceCoin.toggleTax(true);
+        expect(await spaceCoin.collectTaxes()).to.be.true;
+        await spaceCoin.toggleTax(false);
+        expect(await spaceCoin.collectTaxes()).to.be.false;
+    });
+
+    it("only treasury can toggle tax", async () => {
+        await expect(spaceCoin.connect(larry).toggleTax(true)).to.be.revertedWith("ONLY_TREASURY");
+    });
+
+    it("collects aside 2% tax on all transfers when toggled on", async () => {
+        await spaceCoin.transfer(larry.address, parseEther("100"));
+        const treasuryBalanceBefore = await spaceCoin.balanceOf(creator.address);
+
+        await spaceCoin.toggleTax(true);
+        await spaceCoin.connect(larry).transfer(jenny.address, parseEther("50"));
+        const treasuryBalanceAfter = await spaceCoin.balanceOf(creator.address);
+        const difference = treasuryBalanceAfter.sub(treasuryBalanceBefore);
+        expect(await spaceCoin.balanceOf(jenny.address)).to.equal(parseEther("49"));
+        expect(difference.eq(parseEther("1"))).to.be.true;
+    });
 });
