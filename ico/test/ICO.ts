@@ -21,7 +21,9 @@ describe("ICO", function () {
 
     it("investors can purchase tokens during Phase Seed", async () => {
         await ico.connect(creator).whitelistAddress(larry.address);
-        await ico.connect(larry).buy({ value: parseEther("1500")});
+        await ico.connect(larry).buy({ value: parseEther("500")});
+        await ico.connect(larry).buy({ value: parseEther("500")});
+        await ico.connect(larry).buy({ value: parseEther("500")});
 
         expect(await ico.userTokens(larry.address)).to.equal(parseEther("1500").mul(5));
     });
@@ -47,7 +49,9 @@ describe("ICO", function () {
 
     it("maximum contribution 1500ETH during Phase Seed", async () => {
         await ico.connect(creator).whitelistAddress(larry.address);
-        await expect(ico.connect(larry).buy({ value: parseEther("1501")})).to.be.revertedWith("EXCEEDS_MAX_CONTRIBUTION");
+        await ico.connect(larry).buy({ value: parseEther("500")});
+        await ico.connect(larry).buy({ value: parseEther("500")});
+        await expect(ico.connect(larry).buy({ value: parseEther("501")})).to.be.revertedWith("EXCEEDS_MAX_CONTRIBUTION");
     });
 
     it("any investors can purchase tokens during Phase General", async () => {
@@ -84,7 +88,6 @@ describe("ICO", function () {
 
         expect(await ico.totalAmountRaised()).to.equal(parseEther("5000").add(parseEther("15000")));
         expect(await ico.currentPhase()).to.equal(2);
-        // console.log('token', await ico.token())
     });
 
     it("maximum contribution 1000ETH during Phase General", async () => {
