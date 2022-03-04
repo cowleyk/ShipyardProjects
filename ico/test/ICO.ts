@@ -32,6 +32,10 @@ describe("ICO", function () {
         await expect(ico.connect(larry).buy({ value: parseEther("1500")})).to.be.revertedWith("WHITELIST");
     });
 
+    it("only the treasury can whitelist addresses", async () => {
+        await expect(ico.connect(larry).whitelistAddress(jenny.address)).to.be.revertedWith("ONLY_TREASURY");
+    });
+
     it("only raises 15000ETH during Phase Seed", async () => {
         expect(await ico.currentPhase()).to.equal(0);
         for(let i = 0; i < 10; i++) {
@@ -179,5 +183,45 @@ describe("ICO", function () {
 
         expect(await spaceCoin.balanceOf(larry.address)).to.equal(parseEther("1000").mul(5));
         expect(await spaceCoin.balanceOf(jenny.address)).to.equal(parseEther("29000").mul(5));
+    });
+
+    it("prevents over collecting of tokens", async () => {
+        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase();
+        await ico.connect(larry).buy({ value: parseEther("30000")});
+        await ico.connect(larry).collectTokens();
+        await expect(ico.connect(larry).collectTokens()).to.be.revertedWith("NO_TOKENS");
+    });
+
+    it("advances stages properly with contributions", async () => {
+        expect(await ico.currentPhase()).to.equal(0);
+        for(let i = 0; i < 10; i++) {
+            await ico.connect(creator).whitelistAddress(addrs[i].address);
+            await ico.connect(addrs[i]).buy({ value: parseEther("1500")});
+        }
+        expect(await ico.totalAmountRaised()).to.equal(parseEther("15000"));
+        expect(await ico.currentPhase()).to.equal(1);
+
+        for(let i = 10; i < 25; i++) {
+            await ico.connect(addrs[i]).buy({ value: parseEther("1000")});
+        }
+        expect(await ico.totalAmountRaised()).to.equal(parseEther("30000"));
+        expect(await ico.currentPhase()).to.equal(2);
+    });
+
+    it("treasury can withdraw contributions after the goal is reached", async () => {
+        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase();
+        await ico.connect(larry).buy({ value: parseEther("30000")});
+        await expect(await ico.connect(creator).withdrawContributions())
+            .to.changeEtherBalance(creator, parseEther("30000"));
+    });
+
+    it("forces treasury to wait until the goal is reached to withdraw the contributions", async () => {
+        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase();
+        await ico.connect(larry).buy({ value: parseEther("29999")});
+        await expect(ico.connect(creator).withdrawContributions())
+            .to.be.revertedWith("ICO_ACTIVE");
     });
 });

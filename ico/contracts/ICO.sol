@@ -55,7 +55,7 @@ contract ICO is ReentrancyGuard {
     }
 
     modifier icoEnded() {
-        require(totalAmountRaised == 30000 ether, "ICO_ENDED");
+        require(totalAmountRaised == 30000 ether, "ICO_ACTIVE");
         _;
     }
 
