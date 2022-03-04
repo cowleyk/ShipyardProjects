@@ -21,6 +21,6 @@ How would you design your contract to vest the awarded tokens instead, i.e. awar
 ### Owner pull approach
 - There needs to be a trigger to the SPC contract to transfer tokens.
 - I would continue to place the responsibility of collecting tokens even when awarded over time.
-- Contributors would be responsible for collecting their earned tokens ever specified time interval.
+- Contributors would be responsible for collecting their earned tokens every specified time interval.
 - The added complexity would be storing a "start time" per user,
     - When the user requests their tokens, use that start time to calculate how many they're owed vs how many they have collected then transfer that amount
