@@ -1,6 +1,7 @@
 import * as dotenv from "dotenv";
 
 import { HardhatUserConfig, task } from "hardhat/config";
+import "hardhat-contract-sizer";
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
@@ -28,7 +29,7 @@ const config: HardhatUserConfig = {
         hardhat: {
             accounts: {
                 accountsBalance: "300000000000000000000000",
-                count: 30,
+                count: 40,
             },
         },
         ropsten: {
@@ -40,6 +41,9 @@ const config: HardhatUserConfig = {
     gasReporter: {
         enabled: process.env.REPORT_GAS !== undefined,
         currency: "USD",
+    },
+    contractSizer: {
+        runOnCompile: process.env.REPORT_SIZE !== undefined
     },
     etherscan: {
         apiKey: process.env.ETHERSCAN_API_KEY,

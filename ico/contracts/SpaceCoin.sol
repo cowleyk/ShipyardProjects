@@ -27,7 +27,7 @@ contract SpaceCoin is ERC20 {
         super._transfer(sender, recipient, amount);
     }
 
-    function toggleTax(bool _tax) public onlyTreasurer {
+    function toggleTax(bool _tax) external onlyTreasurer {
         collectTaxes = _tax;
     }
 }

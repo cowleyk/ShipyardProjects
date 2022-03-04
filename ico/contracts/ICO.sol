@@ -12,10 +12,10 @@ contract ICO is ReentrancyGuard {
     address immutable public treasury;
     mapping (address => bool) public whitelist;
     uint256 public totalAmountRaised;
-    uint256 public currentPhaseAmountRaised;
     mapping(address => uint256) public userContributions;
 
-    mapping(Phase => uint256) public maxContributions;
+    mapping(Phase => uint256) public maxIndividualContribution;
+    mapping(Phase => uint256) public maxPhaseTotalContribution;
     Phase public currentPhase;
     enum Phase {
         SEED,
@@ -23,7 +23,6 @@ contract ICO is ReentrancyGuard {
         OPEN
     }
 
-    uint256 public constant PHASE_CONTRIBUTION_CAP = 15000 ether;
     bool public isPaused;
 
     IERC20 public token;
@@ -31,9 +30,7 @@ contract ICO is ReentrancyGuard {
     uint256 public constant RATE = 5;
     string constant private INCORRECT_PHASE = "INCORRECT_PHASE";
 
-    // TODO: CONSTRUCT/EMIT EVENTS
     event PhaseAdvanced(string _newPhase);
-    event ICOFinished();
     event UserContribution(address indexed _contributor, uint256 _amount);
     event AddressWhitelisted(address _contributor);
     event ICOStatusChange(string _status);
@@ -43,8 +40,13 @@ contract ICO is ReentrancyGuard {
     constructor() {
         treasury = msg.sender;
 
-        maxContributions[Phase.SEED] = 1500 ether;
-        maxContributions[Phase.GENERAL] = 1000 ether;
+        maxIndividualContribution[Phase.SEED] = 1500 ether;
+        maxIndividualContribution[Phase.GENERAL] = 1000 ether;
+        maxIndividualContribution[Phase.OPEN] = 30000 ether;
+
+        maxPhaseTotalContribution[Phase.SEED] = 15000 ether;
+        maxPhaseTotalContribution[Phase.GENERAL] = 30000 ether;
+        maxPhaseTotalContribution[Phase.OPEN] = 30000 ether;
     }
 
     modifier onlyTreasury() {
@@ -53,12 +55,12 @@ contract ICO is ReentrancyGuard {
     }
 
     modifier icoEnded() {
-        require(currentPhase == Phase.OPEN, INCORRECT_PHASE);
+        require(totalAmountRaised == 30000 ether, "ICO_ENDED");
         _;
     }
 
     function whitelisted() internal view returns (bool) {
-        if(currentPhase == Phase.GENERAL) {
+        if(currentPhase != Phase.SEED) {
             return true;
         }
         return whitelist[msg.sender];
@@ -66,17 +68,15 @@ contract ICO is ReentrancyGuard {
 
     function buy() public payable {
         require(!isPaused, "PAUSED_CAMPAIGN");
-        require(userContributions[msg.sender] + msg.value <= maxContributions[currentPhase], "EXCEEDS_MAX_CONTRIBUTION");
-        require(currentPhaseAmountRaised + msg.value <= PHASE_CONTRIBUTION_CAP, "INSUFFICIENT_AVAILABILITY");
-        require(currentPhase == Phase.SEED || currentPhase == Phase.GENERAL, INCORRECT_PHASE);
+        require(userContributions[msg.sender] + msg.value <= maxIndividualContribution[currentPhase], "EXCEEDS_MAX_CONTRIBUTION");
+        require(totalAmountRaised + msg.value <= maxPhaseTotalContribution[currentPhase], "INSUFFICIENT_AVAILABILITY");
         require(whitelisted(), "WHITELIST");
 
         userContributions[msg.sender] += msg.value;
         totalAmountRaised += msg.value;
-        currentPhaseAmountRaised += msg.value;
         emit UserContribution(msg.sender, msg.value);
 
-        if(currentPhaseAmountRaised == PHASE_CONTRIBUTION_CAP) {
+        if(totalAmountRaised == maxPhaseTotalContribution[currentPhase] && currentPhase != Phase.OPEN) {
             _advancePhase();
         }
     }
@@ -85,30 +85,28 @@ contract ICO is ReentrancyGuard {
         require(currentPhase == Phase.SEED || currentPhase == Phase.GENERAL, INCORRECT_PHASE);
 
         currentPhase = Phase(uint(currentPhase) + 1);
-        delete currentPhaseAmountRaised;
         emit PhaseAdvanced(currentPhase == Phase.GENERAL ? "General" : "Open");
 
         if(currentPhase == Phase.OPEN) {
             token = new SpaceCoin();
-            emit ICOFinished();
         }
     }
 
-    function advancePhase() public onlyTreasury {
+    function advancePhase() external onlyTreasury {
         _advancePhase();
     }
 
-    function whitelistAddress(address _address) public onlyTreasury {
+    function whitelistAddress(address _address) external onlyTreasury {
         whitelist[_address] = true;
         emit AddressWhitelisted(_address);
     }
 
-    function toggleIsPaused(bool _pause) public onlyTreasury {
+    function toggleIsPaused(bool _pause) external onlyTreasury {
         isPaused = _pause;
         emit ICOStatusChange(_pause ? "Paused" : "Resumed" );
     }
 
-    function withdrawContributions() public onlyTreasury icoEnded nonReentrant {
+    function withdrawContributions() external onlyTreasury icoEnded nonReentrant {
         uint256 withdrawalAmount = totalAmountRaised;
         delete totalAmountRaised;
 
@@ -117,7 +115,7 @@ contract ICO is ReentrancyGuard {
         emit ContributionsWithdrawn(withdrawalAmount);
     }
 
-    function collectTokens() public icoEnded nonReentrant {
+    function collectTokens() external icoEnded nonReentrant {
         require(userContributions[msg.sender] > 0, "NO_TOKENS");
 
         uint256 amount = userContributions[msg.sender] * RATE;
