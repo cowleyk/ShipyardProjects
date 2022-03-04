@@ -20,6 +20,8 @@ function App() {
     const [currentAddress, setCurrentAddress] = React.useState(0);
     const [buyResponse, setBuyResponse] = React.useState('')
 
+    // Refresh data on new blocks
+    // Should be filtered in future
     provider.on("block", (n) => {
         console.log("New block", n);
         if(currentAddress) loadData(currentAddress);

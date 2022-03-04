@@ -39,7 +39,22 @@ describe("SpaceCoin", function () {
         await spaceCoin.connect(larry).transfer(jenny.address, parseEther("50"));
         const treasuryBalanceAfter = await spaceCoin.balanceOf(creator.address);
         const difference = treasuryBalanceAfter.sub(treasuryBalanceBefore);
+        // Jenny should receive 98% of 50 SPC transfer
         expect(await spaceCoin.balanceOf(jenny.address)).to.equal(parseEther("49"));
+        // Treasury received 2% of 50 SPC transfer
         expect(difference.eq(parseEther("1"))).to.be.true;
+    });
+
+    it("collects aside 2% tax on all transfers when toggled on", async () => {
+        await spaceCoin.transfer(larry.address, parseEther("100"));
+        const treasuryBalanceBefore = await spaceCoin.balanceOf(creator.address);
+
+        await spaceCoin.connect(larry).transfer(jenny.address, parseEther("50"));
+        const treasuryBalanceAfter = await spaceCoin.balanceOf(creator.address);
+        const difference = treasuryBalanceAfter.sub(treasuryBalanceBefore);
+        // Jenny should receive 100% of 50 SPC transfer
+        expect(await spaceCoin.balanceOf(jenny.address)).to.equal(parseEther("50"));
+        // Treasury received 0% of 50 SPC transfer
+        expect(difference.eq(parseEther("0"))).to.be.true;
     });
 });
