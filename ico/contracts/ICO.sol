@@ -54,11 +54,6 @@ contract ICO is ReentrancyGuard {
         _;
     }
 
-    modifier icoEnded() {
-        require(totalAmountRaised == 30000 ether, "ICO_ACTIVE");
-        _;
-    }
-
     function whitelisted() internal view returns (bool) {
         if (currentPhase != Phase.SEED) {
             return true;
@@ -120,12 +115,8 @@ contract ICO is ReentrancyGuard {
         emit ICOStatusChange(_pause ? "Paused" : "Resumed");
     }
 
-    function withdrawContributions()
-        external
-        onlyTreasury
-        icoEnded
-        nonReentrant
-    {
+    function withdrawContributions() external onlyTreasury nonReentrant {
+        require(totalAmountRaised == 30000 ether, "ICO_ACTIVE");
         uint256 withdrawalAmount = totalAmountRaised;
         delete totalAmountRaised;
 
@@ -134,7 +125,8 @@ contract ICO is ReentrancyGuard {
         emit ContributionsWithdrawn(withdrawalAmount);
     }
 
-    function collectTokens() external icoEnded nonReentrant {
+    function collectTokens() external nonReentrant {
+        require(currentPhase == Phase.OPEN, INCORRECT_PHASE);
         require(userContributions[msg.sender] > 0, "NO_TOKENS");
 
         uint256 amount = userContributions[msg.sender] * RATE;

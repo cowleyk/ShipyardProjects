@@ -170,11 +170,11 @@ describe("ICO", function () {
         expect(await ico.whitelist(larry.address)).to.be.true;
     });
 
-    it("collect tokens after ICO", async () => {
+    it("collect tokens in Phase Open", async () => {
         await ico.connect(creator).advancePhase();
         await ico.connect(larry).buy({ value: parseEther("1000")});
         await ico.connect(creator).advancePhase();
-        await ico.connect(jenny).buy({ value: parseEther("29000")});
+        await ico.connect(jenny).buy({ value: parseEther("2000")});
         await ico.connect(larry).collectTokens();
         await ico.connect(jenny).collectTokens();
         const spcAddress = await ico.token();
@@ -182,7 +182,13 @@ describe("ICO", function () {
         const spaceCoin: SpaceCoin = spaceCoinFactory.attach(spcAddress);
 
         expect(await spaceCoin.balanceOf(larry.address)).to.equal(parseEther("1000").mul(5));
-        expect(await spaceCoin.balanceOf(jenny.address)).to.equal(parseEther("29000").mul(5));
+        expect(await spaceCoin.balanceOf(jenny.address)).to.equal(parseEther("2000").mul(5));
+    });
+
+    it("collect tokens in only Phase Open", async () => {
+        await ico.connect(creator).advancePhase();
+        await ico.connect(larry).buy({ value: parseEther("1000")});
+        await expect(ico.connect(larry).collectTokens()).to.be.revertedWith("INCORRECT_PHASE");
     });
 
     it("prevents over collecting of tokens", async () => {
