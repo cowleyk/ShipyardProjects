@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract SpaceCoin is ERC20 {
-
     bool public collectTaxes;
     address public treasury;
 
@@ -18,7 +17,11 @@ contract SpaceCoin is ERC20 {
         _;
     }
 
-    function _transfer(address sender, address recipient, uint256 amount) internal virtual override {
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal virtual override {
         if (collectTaxes) {
             uint256 taxAmount = amount / 50;
             super._transfer(sender, treasury, taxAmount);

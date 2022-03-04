@@ -9,8 +9,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract ICO is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    address immutable public treasury;
-    mapping (address => bool) public whitelist;
+    address public immutable treasury;
+    mapping(address => bool) public whitelist;
     uint256 public totalAmountRaised;
     mapping(address => uint256) public userContributions;
 
@@ -28,7 +28,7 @@ contract ICO is ReentrancyGuard {
     IERC20 public token;
 
     uint256 public constant RATE = 5;
-    string constant private INCORRECT_PHASE = "INCORRECT_PHASE";
+    string private constant INCORRECT_PHASE = "INCORRECT_PHASE";
 
     event PhaseAdvanced(string _newPhase);
     event UserContribution(address indexed _contributor, uint256 _amount);
@@ -60,7 +60,7 @@ contract ICO is ReentrancyGuard {
     }
 
     function whitelisted() internal view returns (bool) {
-        if(currentPhase != Phase.SEED) {
+        if (currentPhase != Phase.SEED) {
             return true;
         }
         return whitelist[msg.sender];
@@ -68,26 +68,40 @@ contract ICO is ReentrancyGuard {
 
     function buy() public payable {
         require(!isPaused, "PAUSED_CAMPAIGN");
-        require(userContributions[msg.sender] + msg.value <= maxIndividualContribution[currentPhase], "EXCEEDS_MAX_CONTRIBUTION");
-        require(totalAmountRaised + msg.value <= maxPhaseTotalContribution[currentPhase], "INSUFFICIENT_AVAILABILITY");
+        require(
+            userContributions[msg.sender] + msg.value <=
+                maxIndividualContribution[currentPhase],
+            "EXCEEDS_MAX_CONTRIBUTION"
+        );
+        require(
+            totalAmountRaised + msg.value <=
+                maxPhaseTotalContribution[currentPhase],
+            "INSUFFICIENT_AVAILABILITY"
+        );
         require(whitelisted(), "WHITELIST");
 
         userContributions[msg.sender] += msg.value;
         totalAmountRaised += msg.value;
         emit UserContribution(msg.sender, msg.value);
 
-        if(totalAmountRaised == maxPhaseTotalContribution[currentPhase] && currentPhase != Phase.OPEN) {
+        if (
+            totalAmountRaised == maxPhaseTotalContribution[currentPhase] &&
+            currentPhase != Phase.OPEN
+        ) {
             _advancePhase();
         }
     }
 
     function _advancePhase() private {
-        require(currentPhase == Phase.SEED || currentPhase == Phase.GENERAL, INCORRECT_PHASE);
+        require(
+            currentPhase == Phase.SEED || currentPhase == Phase.GENERAL,
+            INCORRECT_PHASE
+        );
 
-        currentPhase = Phase(uint(currentPhase) + 1);
+        currentPhase = Phase(uint256(currentPhase) + 1);
         emit PhaseAdvanced(currentPhase == Phase.GENERAL ? "General" : "Open");
 
-        if(currentPhase == Phase.OPEN) {
+        if (currentPhase == Phase.OPEN) {
             token = new SpaceCoin();
         }
     }
@@ -103,14 +117,19 @@ contract ICO is ReentrancyGuard {
 
     function toggleIsPaused(bool _pause) external onlyTreasury {
         isPaused = _pause;
-        emit ICOStatusChange(_pause ? "Paused" : "Resumed" );
+        emit ICOStatusChange(_pause ? "Paused" : "Resumed");
     }
 
-    function withdrawContributions() external onlyTreasury icoEnded nonReentrant {
+    function withdrawContributions()
+        external
+        onlyTreasury
+        icoEnded
+        nonReentrant
+    {
         uint256 withdrawalAmount = totalAmountRaised;
         delete totalAmountRaised;
 
-        (bool sent,) = treasury.call{ value: withdrawalAmount }("");
+        (bool sent, ) = treasury.call{value: withdrawalAmount}("");
         require(sent, "WITHDRAWAL_FAILURE");
         emit ContributionsWithdrawn(withdrawalAmount);
     }
