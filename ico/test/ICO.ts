@@ -25,7 +25,7 @@ describe("ICO", function () {
         await ico.connect(larry).buy({ value: parseEther("500")});
         await ico.connect(larry).buy({ value: parseEther("500")});
 
-        expect(await ico.userTokens(larry.address)).to.equal(parseEther("1500").mul(5));
+        expect(await ico.userContributions(larry.address)).to.equal(parseEther("1500"));
     });
 
     it("only whitelisted investors cant purchase tokens during Phase Seed", async () => {
@@ -107,14 +107,14 @@ describe("ICO", function () {
 
     it("owner can pause/resume campaign anytime", async () => {
         await ico.connect(creator).whitelistAddress(larry.address);
-        expect(await ico.active()).to.be.true;
+        expect(await ico.isPaused()).to.be.false;
 
-        await ico.connect(creator).toggleActive(false);
-        expect(await ico.active()).to.be.false;
+        await ico.connect(creator).toggleIsPaused(true);
+        expect(await ico.isPaused()).to.be.true;
         await expect(ico.connect(larry).buy({ value: parseEther("100")})).to.be.revertedWith("PAUSED_CAMPAIGN");
-        await ico.connect(creator).toggleActive(true);
+        await ico.connect(creator).toggleIsPaused(false);
         await ico.connect(larry).buy({ value: parseEther("100")});
-        expect(await ico.userTokens(larry.address)).to.equal(parseEther("100").mul(5));
+        expect(await ico.userContributions(larry.address)).to.equal(parseEther("100"));
     });
 
     it("owner can add addresses to whitelist", async () => {

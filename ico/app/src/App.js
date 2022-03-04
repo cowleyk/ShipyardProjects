@@ -7,7 +7,7 @@ const { utils: { parseEther, formatEther } } = ethers;
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-const icoAddr = '<TODO UPDATE THIS WITH RINKEBY>';
+const icoAddr = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
 const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
 
 function App() {
@@ -15,9 +15,14 @@ function App() {
     const [owner, setOwner] = React.useState(0);
     const [totalAmountRaised, setTotalAmountRaised] = React.useState(0);
     const [currentPhaseAmountRaised, setCurrentPhaseAmountRaised] = React.useState(0);
-    const [userTokens, setUserTokens] = React.useState(0);
+    const [userContributions, setUserContributions] = React.useState(0);
     const [currentAddress, setCurrentAddress] = React.useState(0);
     const [buyResponse, setBuyResponse] = React.useState('')
+
+    provider.on("block", (n) => {
+        console.log("New block", n);
+        if(currentAddress) loadData(currentAddress);
+    });
 
     React.useEffect(() => {
         console.log('STARTING');
@@ -26,25 +31,39 @@ function App() {
 
     const connectToMetamask = async () => {
         try {
-            let signerAddress = await signer.getAddress()
-            setCurrentAddress(signerAddress)
-            console.log("Signed in as", signerAddress)
+            let signerAddress = await signer.getAddress();
+            setCurrentAddress(signerAddress);
+            console.log("Signed in as", signerAddress);
+            loadData(signerAddress);
+        } catch(err) {
+            console.log('error signing in', err);
+            alert("Please sign into MetaMask");
+            await provider.send("eth_requestAccounts", []);
+        }
+    }
+
+    const loadData = async (signerAddress) => {
+        try {
             setOwner(await icoContract.treasury());
             setTotalAmountRaised(await icoContract.totalAmountRaised());
             setCurrentPhaseAmountRaised(await icoContract.currentPhaseAmountRaised());
-            setUserTokens(await icoContract.userTokens(signerAddress));
+            setUserContributions(await icoContract.userContributions(signerAddress));
         } catch(err) {
-            console.log('err', err)
-            alert("Please sign into MetaMask")
-            await provider.send("eth_requestAccounts", [])
+            console.log('error fetching data', err);
         }
     }
 
     const getTokensRemaining = () => {
         if(!currentPhaseAmountRaised) return null;
-        const phaseTokensSold = currentPhaseAmountRaised.mul(5)
+        const phaseTokensSold = currentPhaseAmountRaised.mul(5);
         const phaseTokensReamaining = parseEther("15000").sub(phaseTokensSold);
         return formatEther(phaseTokensReamaining);
+    }
+
+    const getTokensOwned = () => {
+        if(!userContributions) return null;
+        const userTokens = userContributions.mul(5);
+        return formatEther(userTokens);
     }
 
     const handleContribute = async () => {
@@ -69,7 +88,7 @@ function App() {
                 <li>Owner Address: {owner?.toString()}</li>
                 <li>Total Raised: {formatEther(totalAmountRaised)} ETH</li>
                 <li>Total tokens currently available: {getTokensRemaining()} SPC</li>
-                <li>Tokens owned: {formatEther(userTokens)} SPC</li>
+                <li>Tokens owned: {getTokensOwned()} SPC</li>
             </ul>
             <p>Buy (rate: 1ETH : 5SPC)</p>
             <input value={amount} onChange={(e) => setAmount(e.target.value)} />

@@ -2,17 +2,18 @@
 pragma solidity ^0.8.0;
 
 import "./SpaceCoin.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract ICO {
+contract ICO is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address immutable public treasury;
     mapping (address => bool) public whitelist;
     uint256 public totalAmountRaised;
     uint256 public currentPhaseAmountRaised;
-    mapping(address => uint256) public userTokens;
+    mapping(address => uint256) public userContributions;
 
     mapping(Phase => uint256) public maxContributions;
     Phase public currentPhase;
@@ -23,7 +24,7 @@ contract ICO {
     }
 
     uint256 public constant PHASE_CONTRIBUTION_CAP = 15000 ether;
-    bool public active = true;
+    bool public isPaused;
 
     IERC20 public token;
 
@@ -31,6 +32,13 @@ contract ICO {
     string constant private INCORRECT_PHASE = "INCORRECT_PHASE";
 
     // TODO: CONSTRUCT/EMIT EVENTS
+    event PhaseAdvanced(string _newPhase);
+    event ICOFinished();
+    event UserContribution(address indexed _contributor, uint256 _amount);
+    event AddressWhitelisted(address _contributor);
+    event ICOStatusChange(string _status);
+    event ContributionsWithdrawn(uint256 _amount);
+    event TokensCollected(address indexed _contributor, uint256 _amount);
 
     constructor() {
         treasury = msg.sender;
@@ -49,8 +57,6 @@ contract ICO {
         _;
     }
 
-    
-
     function whitelisted() internal view returns (bool) {
         if(currentPhase == Phase.GENERAL) {
             return true;
@@ -59,15 +65,16 @@ contract ICO {
     }
 
     function buy() public payable {
-        require(active, "PAUSED_CAMPAIGN");
-        require(userTokens[msg.sender] + msg.value <= maxContributions[currentPhase], "EXCEEDS_MAX_CONTRIBUTION");
+        require(!isPaused, "PAUSED_CAMPAIGN");
+        require(userContributions[msg.sender] + msg.value <= maxContributions[currentPhase], "EXCEEDS_MAX_CONTRIBUTION");
         require(currentPhaseAmountRaised + msg.value <= PHASE_CONTRIBUTION_CAP, "INSUFFICIENT_AVAILABILITY");
         require(currentPhase == Phase.SEED || currentPhase == Phase.GENERAL, INCORRECT_PHASE);
         require(whitelisted(), "WHITELIST");
 
-        userTokens[msg.sender] += msg.value * RATE;
+        userContributions[msg.sender] += msg.value;
         totalAmountRaised += msg.value;
         currentPhaseAmountRaised += msg.value;
+        emit UserContribution(msg.sender, msg.value);
 
         if(currentPhaseAmountRaised == PHASE_CONTRIBUTION_CAP) {
             _advancePhase();
@@ -76,11 +83,14 @@ contract ICO {
 
     function _advancePhase() private {
         require(currentPhase == Phase.SEED || currentPhase == Phase.GENERAL, INCORRECT_PHASE);
+
         currentPhase = Phase(uint(currentPhase) + 1);
         delete currentPhaseAmountRaised;
+        emit PhaseAdvanced(currentPhase == Phase.GENERAL ? "General" : "Open");
 
         if(currentPhase == Phase.OPEN) {
             token = new SpaceCoin();
+            emit ICOFinished();
         }
     }
 
@@ -90,28 +100,30 @@ contract ICO {
 
     function whitelistAddress(address _address) public onlyTreasury {
         whitelist[_address] = true;
+        emit AddressWhitelisted(_address);
     }
 
-    function toggleActive(bool _active) public onlyTreasury {
-        active = _active;
+    function toggleIsPaused(bool _pause) public onlyTreasury {
+        isPaused = _pause;
+        emit ICOStatusChange(_pause ? "Paused" : "Resumed" );
     }
 
-    // TODO: ADD NONREENTRANCY
-    function withdrawContributions() public onlyTreasury icoEnded {
+    function withdrawContributions() public onlyTreasury icoEnded nonReentrant {
         uint256 withdrawalAmount = totalAmountRaised;
         delete totalAmountRaised;
 
         (bool sent,) = treasury.call{ value: withdrawalAmount }("");
         require(sent, "WITHDRAWAL_FAILURE");
+        emit ContributionsWithdrawn(withdrawalAmount);
     }
 
-    // TODO: ADD NONREENTRY
-    function collectTokens() public icoEnded {
-        require(userTokens[msg.sender] > 0, "NO_TOKENS");
+    function collectTokens() public icoEnded nonReentrant {
+        require(userContributions[msg.sender] > 0, "NO_TOKENS");
 
-        uint256 amount = userTokens[msg.sender];
-        delete userTokens[msg.sender];
+        uint256 amount = userContributions[msg.sender] * RATE;
+        delete userContributions[msg.sender];
         token.safeTransfer(msg.sender, amount);
+        emit TokensCollected(msg.sender, amount);
     }
 
     receive() external payable {
