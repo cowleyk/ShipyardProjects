@@ -7,7 +7,8 @@ const { utils: { parseEther, formatEther } } = ethers;
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-const icoAddr = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+// ICO Address on Rinkeby
+const icoAddr = '0x7f6003FD7744dA389d763921D69286D5aC02551f';
 const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
 
 function App() {

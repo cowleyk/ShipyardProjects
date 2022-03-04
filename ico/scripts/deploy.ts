@@ -14,6 +14,10 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
+  const [deployer] = await ethers.getSigners(); //get the account to deploy the contract
+
+  console.log("Deploying contracts with the account:", deployer.address); 
+
   const ICO = await ethers.getContractFactory("ICO");
   const ico = await ICO.deploy();
 
