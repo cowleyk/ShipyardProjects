@@ -10,6 +10,8 @@
     - Voting will be closed after a batch breaks the 25% quorum
     - Following batches will not be counted after the quorum-breaking batch
 - Members can have only one active (up for vote) proposal at a time
+- Proposing members and the govenor can cancel a proposal before it executes
+    - Proposing members are assumed to be subject matter experts on their proposal
 
 ### Voter
 - 1 ETH to become a member
