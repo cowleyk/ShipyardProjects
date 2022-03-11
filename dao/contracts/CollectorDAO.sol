@@ -162,6 +162,7 @@ contract CollectorDAO {
         require(targets.length != 0, "MISSING_FUNCTIONALITY");
         require(targets.length <= maxTargets, "ACTIONS_OVERFLOW");
 
+        totalProposals++;
         Proposal memory newProposal = Proposal({
             id: totalProposals,
             proposer: msg.sender,
@@ -175,11 +176,9 @@ contract CollectorDAO {
             description: description,
             status: ProposalStatus.REVIEW
         });
-        totalProposals++;
 
         proposals[newProposal.id] = newProposal;
         contributors[msg.sender].recentProposalId = newProposal.id;
-
         // emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, startBlock, endBlock, description);
         return newProposal.id;
     }
