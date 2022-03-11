@@ -19,7 +19,7 @@ describe("CollectorDAO", function () {
     beforeEach(async () => {
         [creator, larry, jenny, whitelisted1, whitelisted2, ...addrs] = await ethers.getSigners();
         const CollectorDao = await ethers.getContractFactory("CollectorDAO");
-        collectorDao = await CollectorDao.deploy(creator.address, 5, [whitelisted1.address, whitelisted2.address]);
+        collectorDao = await CollectorDao.deploy(creator.address, 2, [whitelisted1.address, whitelisted2.address]);
         await collectorDao.deployed();    
         domain = {
             name: 'CollectorDAO',
@@ -45,6 +45,11 @@ describe("CollectorDAO", function () {
         await expect(collectorDao.connect(larry).becomeMember({ value: parseEther("0.9")})).to.be.revertedWith("INSUFFICIENT_FUNDS");
     });
 
+    it("Only can become a member once", async () => {
+        await collectorDao.connect(larry).becomeMember({ value: parseEther("1")});
+        await expect(collectorDao.connect(larry).becomeMember({ value: parseEther("1")})).to.be.revertedWith("MEMBER_EXISTS");
+    });
+
     it("Allows members to increase stake", async () => {
         await collectorDao.connect(larry).becomeMember({ value: parseEther("1")});
         await collectorDao.connect(larry).increaseStake({ value: parseEther("0.3")});
@@ -55,6 +60,10 @@ describe("CollectorDAO", function () {
         expect(await collectorDao.totalMembers()).to.equal(1);
     });
 
+    it("Only members can increase their stake", async () => {
+        await expect(collectorDao.connect(larry).increaseStake({ value: parseEther("0.3")})).to.be.revertedWith("NOT_MEMBER");
+    });
+
     it("Allows governer to whitelist proposers", async () => {
         const larryUnlisted = await collectorDao.contributors(larry.address);
         expect(larryUnlisted.whitelisted).to.be.false;
@@ -63,10 +72,21 @@ describe("CollectorDAO", function () {
         expect(larryWhitelisted.whitelisted).to.be.true;
     });
 
+    it("A member cannot add to whitelist", async () => {
+        await collectorDao.connect(larry).becomeMember({ value: parseEther("1")});
+        await expect(collectorDao.connect(larry).whitelistAddress(larry.address)).to.be.revertedWith("PERMISSION_ERROR");
+    });
+
     it("Allows qualified addresses to create a proposal", async () => {
         // whitelisted1 becomes member, is already whitelisted, and can create a proposal
         await collectorDao.connect(whitelisted1).becomeMember({ value: parseEther("1")});
-        await collectorDao.connect(whitelisted1).propose([Wallet.createRandom().address, Wallet.createRandom().address], [1, 2], [randomBytes(1), randomBytes(1)], ['functSig1', 'functSig2'], 'description');
+        await collectorDao.connect(whitelisted1).propose(
+            [Wallet.createRandom().address, Wallet.createRandom().address], 
+            [1, 2], 
+            [randomBytes(1), randomBytes(1)], 
+            ['functSig1', 'functSig2'], 
+            'description'
+        );
         const proposalId = 1;
         const newProposal = await collectorDao.proposals(proposalId);
         const whitelistedContributor = await collectorDao.contributors(whitelisted1.address);
@@ -77,13 +97,49 @@ describe("CollectorDAO", function () {
         expect(whitelistedContributor.recentProposalId).to.equal(newProposal.id);
 
         // whitelisted1 cannot create a second proposal while they have an active proposal
-        await expect(collectorDao.connect(whitelisted1).propose([Wallet.createRandom().address, Wallet.createRandom().address], [1, 2], [randomBytes(1), randomBytes(1)], ['functSig1', 'functSig2'], 'description'))
-            .to.be.revertedWith('MEMBER_PROPOSAL_EXISTS')
+        await expect(collectorDao.connect(whitelisted1).propose(
+            [Wallet.createRandom().address, Wallet.createRandom().address], 
+            [1, 2], 
+            [randomBytes(1), randomBytes(1)], 
+            ['functSig1', 'functSig2'], 
+            'description'
+        ))
+        .to.be.revertedWith('MEMBER_PROPOSAL_EXISTS')
+    });
+
+    it("Requires a proposal to have valid parameters", async () => {
+        await collectorDao.connect(whitelisted1).becomeMember({ value: parseEther("1")});
+        const invalidParameters =  collectorDao.connect(whitelisted1).propose(
+            [Wallet.createRandom().address], 
+            [1, 2], 
+            [randomBytes(1), randomBytes(1)], 
+            ['functSig1', 'functSig2'], 
+            'description'
+        );
+        await expect(invalidParameters).to.be.revertedWith("INVALID_PARAMETERS");
+
+        const missingParameters =  collectorDao.connect(whitelisted1).propose([], [], [], [], 'description');
+        await expect(missingParameters).to.be.revertedWith("MISSING_FUNCTIONALITY");
+
+        const tooManyActions = collectorDao.connect(whitelisted1).propose(
+            [Wallet.createRandom().address, Wallet.createRandom().address, Wallet.createRandom().address],
+            [1, 2, 3],
+            [randomBytes(1), randomBytes(1), randomBytes(1)],
+            ['functSig1', 'functSig2', ''],
+            'description'
+        );
+        await expect(tooManyActions).to.be.revertedWith("ACTIONS_OVERFLOW");
     });
     
     it("Allows qualified addresses to cancel a proposal", async () => {
         await collectorDao.connect(whitelisted1).becomeMember({ value: parseEther("1")});
-        await collectorDao.connect(whitelisted1).propose([Wallet.createRandom().address, Wallet.createRandom().address], [1, 2], [randomBytes(1), randomBytes(1)], ['functSig1', 'functSig2'], 'description');
+        await collectorDao.connect(whitelisted1).propose(
+            [Wallet.createRandom().address, Wallet.createRandom().address],
+            [1, 2],
+            [randomBytes(1), randomBytes(1)],
+            ['functSig1', 'functSig2'],
+            'description'
+        );
         const proposalId = 1;
         const proposalPreCancel = await collectorDao.proposals(proposalId);
         expect(proposalPreCancel.status).to.equal(1)
@@ -99,13 +155,25 @@ describe("CollectorDAO", function () {
 
     it("Requires non-whitelisted addresses to have voted 5 times to create a proposal", async () => {
         await collectorDao.connect(larry).becomeMember({ value: parseEther("1")});
-        const larryProposal = collectorDao.connect(larry).propose([Wallet.createRandom().address, Wallet.createRandom().address], [1, 2], [randomBytes(1), randomBytes(1)], ['functSig1', 'functSig2'], 'description');
+        const larryProposal = collectorDao.connect(larry).propose(
+            [Wallet.createRandom().address, Wallet.createRandom().address], 
+            [1, 2], 
+            [randomBytes(1), randomBytes(1)], 
+            ['functSig1', 'functSig2'], 
+            'description'
+        );
         await expect(larryProposal).to.be.revertedWith("PERMISSION_ERROR")
     });
 
     it("Allows members to vote on a proposal", async () => {
         await collectorDao.connect(whitelisted1).becomeMember({ value: parseEther("1")});
-        await collectorDao.connect(whitelisted1).propose([Wallet.createRandom().address, Wallet.createRandom().address], [1, 2], [randomBytes(1), randomBytes(1)], ['functSig1', 'functSig2'], 'description');
+        await collectorDao.connect(whitelisted1).propose(
+            [Wallet.createRandom().address, Wallet.createRandom().address], 
+            [1, 2], 
+            [randomBytes(1), randomBytes(1)], 
+            ['functSig1', 'functSig2'], 
+            'description'
+        );
         const proposalId = 1;
         const ballotValue = { proposalId };
 
@@ -125,6 +193,55 @@ describe("CollectorDAO", function () {
 
         const proposal = await collectorDao.proposals(proposalId);
         expect(proposal.votes).to.equal(1);
+    });
+
+    it("Requires a proposal to be in the correct state and receive valid parameters to vote", async () => {
+        await collectorDao.connect(whitelisted1).becomeMember({ value: parseEther("1")});
+        await collectorDao.connect(whitelisted1).propose(
+            [Wallet.createRandom().address, Wallet.createRandom().address], 
+            [1, 2], 
+            [randomBytes(1), randomBytes(1)], 
+            ['functSig1', 'functSig2'], 
+            'description'
+        );
+        const proposalId = 1;
+        const ballotValue = { proposalId };
+
+        let signature = await whitelisted1._signTypedData(domain, types, ballotValue);
+
+        const whitelisted1BeforeVote = await collectorDao.contributors(whitelisted1.address);
+        expect(whitelisted1BeforeVote.voteWeight).to.equal(parseEther("1"));
+        expect(whitelisted1BeforeVote.voteCount).to.equal(0);
+        
+        // Mismatched votes and signatures fail
+        await expect(collectorDao.voteBySignatures(proposalId, [1, 1], [signature])).to.be.revertedWith("INVALID_PARAMETERS");
+
+        // A proposal not in review cannot be voted on
+        await collectorDao.connect(whitelisted1).cancelProposal(proposalId);
+        await expect(collectorDao.voteBySignatures(proposalId, [1], [signature])).to.be.revertedWith("INVALID_PROPOSAL");
+    });
+
+    it("Does not process bad signatures", async () => {
+        await collectorDao.connect(whitelisted1).becomeMember({ value: parseEther("1")});
+        await collectorDao.connect(whitelisted2).becomeMember({ value: parseEther("1")});
+        await collectorDao.connect(larry).becomeMember({ value: parseEther("1")});
+        await collectorDao.connect(jenny).becomeMember({ value: parseEther("1")});
+        await collectorDao.connect(whitelisted1).propose([Wallet.createRandom().address, Wallet.createRandom().address], [1, 2], [randomBytes(1), randomBytes(1)], ['functSig1', 'functSig2'], 'description');
+        const proposalId = 1;
+        const ballotValue = { proposalId };
+
+        let whitelisted1Sig = await whitelisted1._signTypedData(domain, types, ballotValue);
+        let whitelisted2Sig = await whitelisted2._signTypedData(domain, types, ballotValue);
+        let larrySig = randomBytes(1);
+        let jennySig = await jenny._signTypedData(domain, types, ballotValue);
+
+        // send 4 total votes, but 1 voter (larry) has a bad signature
+        await collectorDao.voteBySignatures(proposalId, [1, 1, 1, 1], [whitelisted1Sig, whitelisted2Sig, larrySig, jennySig]);
+
+        // expect only 3 votes on the proposal
+        const proposal = await collectorDao.proposals(proposalId);
+        expect(proposal.votes).to.equal(3);
+        expect(proposal.status).to.equal(1);
     });
 
     it("Ensures all signatures belong to members to be counted as votes", async () => {
@@ -169,7 +286,7 @@ describe("CollectorDAO", function () {
         expect(proposalPreExecute.votes).to.equal(4);
         expect(proposalPreExecute.status).to.equal(1);
         
-        // a non-proposer member cannot cancel a proposal
+        // a non-proposer member cannot execute a proposal
         await expect(collectorDao.connect(larry).execute(proposalId)).to.be.revertedWith("PERMISSION_ERROR");
 
         // the proposer can execute a proposal
