@@ -1,0 +1,35 @@
+# Collector DAO
+
+## Voting System
+### Proposals
+- 25% quorum required on proposals
+- Can be submitted by whitelisted users or users who have voted 5 on 5 other proposals
+- Max transactions per proposal is set in contract constructor
+- Proposal state is evaluated after every batch of signed votes
+    - All votes in a batch will be counted
+    - Voting will be closed after a batch breaks the 25% quorum
+    - Following batches will not be counted after the quorum-breaking batch
+    - First batch of votes must wait 14 days before submission
+- Members can have only one active (up for vote) proposal at a time
+
+### Voter
+- 1 ETH to become a member
+    - can contribute as much as they like
+- Each voter owns and earns "voteWeight"
+    - 1 voteWeight == 1 ETH
+    - Contributions directly grant voteWeight
+    - Each vote on a proposal grants the voter 0.05 voteWeight
+
+### Benefits
+
+### Negatives
+
+## Design Exercise
+### Non-transitive vote delegation
+- Would have to track delegation inside contract
+- A simple mapping of a member's address to the delegatee's address
+- A member would be responsible for updating it's delegatee if they would like to use the feature
+
+### Transitive vote delegation
+- Member A delegates to trusted Member B
+- Member A does not trust Member C, but Member B can delegate Member A's vote to Member C
