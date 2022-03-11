@@ -69,12 +69,24 @@ contract CollectorDAO {
     /// @notice the maximum number of actions a proposal can perform
     uint256 public immutable maxTargets;
 
+    event AddressWhitelisted(address _proposer);
     event MemberJoined(address _member);
-    event VoteCast(
-        address indexed voter,
-        uint8 proposalId,
-        uint8 support
+    event MemberIncreasedStake(address indexed _member, uint256 _amount);
+    event ProposalCreated(
+        uint8 indexed _id,
+        address indexed _proposer,
+        address[] _targets,
+        uint256[] _values,
+        string[] _signatures,
+        bytes[] _calldatas,
+        string _description
     );
+    event ProposalCancelled(uint8 _proposalId);
+    event VoteFailed(bytes _signature);
+    event BatchVotesSubmitted(uint8 indexed _proposalId, bytes[] _errors);
+    event ProposalFailed(uint8 indexed _proposalId, address _target, uint256 _value, string _signature, bytes _calldata);
+    event ExecuteTransaction(uint8 indexed _proposalId, address _target, uint256 _value, string _signature, bytes _calldata);
+    event ProposalExecuted(uint8 _proposalId);
 
     /// @notice set up initial data of contract
     /// @param _govenor special permissions address for DAO manangement
@@ -122,6 +134,7 @@ contract CollectorDAO {
     /// @notice allow govenor to add whitelisted addresses on the fly
     function whitelistAddress(address proposer) external isGovenor {
         contributors[proposer].whitelisted = true;
+        emit AddressWhitelisted(proposer);
     }
 
     /// @notice an address can become a member with a 1 ETH contribution
@@ -142,6 +155,7 @@ contract CollectorDAO {
         contributors[msg.sender].contribution += msg.value;
         contributors[msg.sender].voteWeight += msg.value;
         totalContributions += msg.value;
+        emit MemberIncreasedStake(msg.sender, msg.value);
     }
 
     /// @notice create a proposal with a list of functionality
@@ -179,12 +193,12 @@ contract CollectorDAO {
 
         proposals[newProposal.id] = newProposal;
         contributors[msg.sender].recentProposalId = newProposal.id;
-        // emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, startBlock, endBlock, description);
+        emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, description);
         return newProposal.id;
     }
 
     /// @notice the govenor or the proposing member can cancel a proposal
-    function cancelProposal(uint256 proposalId) external {
+    function cancelProposal(uint8 proposalId) external {
         require(
             msg.sender == proposals[proposalId].proposer ||
                 msg.sender == govenor,
@@ -195,6 +209,7 @@ contract CollectorDAO {
             "INVALID_PROPOSAL"
         );
         proposals[proposalId].status = ProposalStatus.CANCELLED;
+        emit ProposalCancelled(proposalId);
     }
 
     /// @notice process batch votes all at once
@@ -204,7 +219,7 @@ contract CollectorDAO {
     /// @param votes yes or no votes corresponding to the signature at the same index in the `signatures` array
     /// @param signatures array of EIP-712 sigantures from members
     function voteBySignatures(
-        uint256 proposalId,
+        uint8 proposalId,
         uint8[] memory votes,
         bytes[] memory signatures
     ) external returns (bytes[] memory) {
@@ -230,19 +245,21 @@ contract CollectorDAO {
                 }
                 bool voted = castVote(proposalId, votes[i], v, r, s);
                 if (!voted) {
+                    emit VoteFailed(signatures[i]);
                     errors[i] = signatures[i];
                 }
             } else {
                 errors[i] = signatures[i];
             }
         }
+        emit BatchVotesSubmitted(proposalId, errors);
         return errors;
     }
 
     /// @notice internal function to process signatures and accumulate votes
     /// @dev sigantures are checked to be non-zero address and checked to be an existing member
     function castVote(
-        uint256 proposalId,
+        uint8 proposalId,
         uint8 support,
         uint8 v,
         bytes32 r,
@@ -290,8 +307,6 @@ contract CollectorDAO {
         contributors[signatory].voteCount++;
         contributors[signatory].voteWeight += 0.05 ether;
         return true;
-
-        // emit VoteCast(signatory, proposalId, support, castVoteInternal(signatory, proposalId, support), "");
     }
 
     /// @notice make sure the proposal about to be executed meets the DAO criteria
@@ -344,13 +359,13 @@ contract CollectorDAO {
             );
             if (!success) {
                 proposals[proposalId].status = ProposalStatus.FAILED;
-                // emite ProposalFailed(proposalId)
+                emit ProposalFailed(proposalId, proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i]);
                 return (false, proposal.targets[i]);
             }
-            // emit ExecuteTransaction(txHash, target, value, signature, data, eta);
+            emit ExecuteTransaction(proposalId, proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i]);
         }
 
-        // emit ProposalExecuted(proposalId);
+        emit ProposalExecuted(proposalId);
         return (true, address(0));
     }
 
