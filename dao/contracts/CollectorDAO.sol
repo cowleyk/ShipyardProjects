@@ -182,7 +182,8 @@ contract CollectorDAO {
     ) external isMember canPropose returns (uint8) {
         require(
             targets.length == values.length &&
-                targets.length == calldatas.length,
+                targets.length == calldatas.length &&
+                    targets.length == signatures.length,
             "INVALID_PARAMETERS"
         );
         require(targets.length != 0, "MISSING_FUNCTIONALITY");
