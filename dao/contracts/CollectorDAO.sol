@@ -84,8 +84,20 @@ contract CollectorDAO {
     event ProposalCancelled(uint8 _proposalId);
     event VoteFailed(bytes _signature);
     event BatchVotesSubmitted(uint8 indexed _proposalId, bytes[] _errors);
-    event ProposalFailed(uint8 indexed _proposalId, address _target, uint256 _value, string _signature, bytes _calldata);
-    event ExecuteTransaction(uint8 indexed _proposalId, address _target, uint256 _value, string _signature, bytes _calldata);
+    event ProposalFailed(
+        uint8 indexed _proposalId,
+        address _target,
+        uint256 _value,
+        string _signature,
+        bytes _calldata
+    );
+    event ExecuteTransaction(
+        uint8 indexed _proposalId,
+        address _target,
+        uint256 _value,
+        string _signature,
+        bytes _calldata
+    );
     event ProposalExecuted(uint8 _proposalId);
 
     /// @notice set up initial data of contract
@@ -193,7 +205,15 @@ contract CollectorDAO {
 
         proposals[newProposal.id] = newProposal;
         contributors[msg.sender].recentProposalId = newProposal.id;
-        emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, description);
+        emit ProposalCreated(
+            newProposal.id,
+            msg.sender,
+            targets,
+            values,
+            signatures,
+            calldatas,
+            description
+        );
         return newProposal.id;
     }
 
@@ -359,10 +379,22 @@ contract CollectorDAO {
             );
             if (!success) {
                 proposals[proposalId].status = ProposalStatus.FAILED;
-                emit ProposalFailed(proposalId, proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i]);
+                emit ProposalFailed(
+                    proposalId,
+                    proposal.targets[i],
+                    proposal.values[i],
+                    proposal.signatures[i],
+                    proposal.calldatas[i]
+                );
                 return (false, proposal.targets[i]);
             }
-            emit ExecuteTransaction(proposalId, proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i]);
+            emit ExecuteTransaction(
+                proposalId,
+                proposal.targets[i],
+                proposal.values[i],
+                proposal.signatures[i],
+                proposal.calldatas[i]
+            );
         }
 
         emit ProposalExecuted(proposalId);
