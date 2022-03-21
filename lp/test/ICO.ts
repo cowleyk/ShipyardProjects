@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { ICO, SpaceCoin } from "../typechain";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import { Contract, Wallet } from "ethers";
 const { utils: { parseEther, formatEther } } = ethers;
 
 
@@ -15,13 +16,13 @@ describe("ICO", function () {
     beforeEach(async () => {
         [creator, larry, jenny, ...addrs] = await ethers.getSigners();
         const icoFactory = await ethers.getContractFactory("ICO");
-        ico = await icoFactory.deploy();
+        ico = await icoFactory.deploy([]);
         await ico.deployed();
     });
 
     it("investors can purchase tokens during Phase Seed", async () => {
-        await ico.connect(creator).whitelistAddress(larry.address);
-        await ico.connect(creator).whitelistAddress(jenny.address);
+        await ico.connect(creator).whitelistAddress(larry.address, true);
+        await ico.connect(creator).whitelistAddress(jenny.address, true);
         await ico.connect(larry).buy({ value: parseEther("500")});
         await ico.connect(larry).buy({ value: parseEther("500")});
         await ico.connect(larry).buy({ value: parseEther("500")});
@@ -36,25 +37,25 @@ describe("ICO", function () {
     });
 
     it("owner can add addresses to whitelist", async () => {
-        await ico.connect(creator).whitelistAddress(larry.address);
+        await ico.connect(creator).whitelistAddress(larry.address, true);
         expect(await ico.whitelist(larry.address)).to.be.true;
     });
 
     it("only the treasury can whitelist addresses", async () => {
-        await expect(ico.connect(larry).whitelistAddress(jenny.address)).to.be.revertedWith("ONLY_TREASURY");
+        await expect(ico.connect(larry).whitelistAddress(jenny.address, true)).to.be.revertedWith("ONLY_TREASURY");
     });
 
     it("owner can advance phase anytime", async () => {
         expect(await ico.currentPhase()).to.equal(0);
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
         expect(await ico.currentPhase()).to.equal(1);
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(1);
         expect(await ico.currentPhase()).to.equal(2);
-        await expect(ico.connect(creator).advancePhase()).to.be.revertedWith("INCORRECT_PHASE");
+        await expect(ico.connect(creator).advancePhase(2)).to.be.revertedWith("INCORRECT_PHASE");
     });
 
     it("owner can pause/resume campaign anytime", async () => {
-        await ico.connect(creator).whitelistAddress(larry.address);
+        await ico.connect(creator).whitelistAddress(larry.address, true);
         expect(await ico.isPaused()).to.be.false;
 
         // pause ICO
@@ -73,12 +74,12 @@ describe("ICO", function () {
     it("only raises 15,000ETH during Phase Seed", async () => {
         expect(await ico.currentPhase()).to.equal(0);
         for(let i = 0; i < 10; i++) {
-            await ico.connect(creator).whitelistAddress(addrs[i].address);
+            await ico.connect(creator).whitelistAddress(addrs[i].address, true);
             await ico.connect(addrs[i]).buy({ value: parseEther("1490")});
         }
 
         expect(await ico.totalAmountRaised()).to.equal(parseEther("14900"));
-        await ico.connect(creator).whitelistAddress(larry.address);
+        await ico.connect(creator).whitelistAddress(larry.address, true);
         
         // attempt to contribute up to 15001 ETH
         await expect(ico.connect(larry).buy({ value: parseEther("101")})).to.be.revertedWith("INSUFFICIENT_AVAILABILITY");
@@ -90,7 +91,7 @@ describe("ICO", function () {
     });
 
     it("maximum contribution 1500ETH during Phase Seed", async () => {
-        await ico.connect(creator).whitelistAddress(larry.address);
+        await ico.connect(creator).whitelistAddress(larry.address, true);
         await ico.connect(larry).buy({ value: parseEther("500")});
         await ico.connect(larry).buy({ value: parseEther("500")});
         await expect(ico.connect(larry).buy({ value: parseEther("501")})).to.be.revertedWith("EXCEEDS_MAX_CONTRIBUTION");
@@ -101,7 +102,7 @@ describe("ICO", function () {
 
     it("any investors can purchase tokens during Phase General", async () => {
         // advance from Seed to General
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
         expect(await ico.currentPhase()).to.equal(1);
 
         for(let i = 0; i < 5; i++) {
@@ -118,13 +119,13 @@ describe("ICO", function () {
 
         // Raise some ETH during Phase Seed
         for(let i = 0; i < 5; i++) {
-            await ico.connect(creator).whitelistAddress(addrs[i].address);
+            await ico.connect(creator).whitelistAddress(addrs[i].address, true);
             await ico.connect(addrs[i]).buy({ value: parseEther("1000")});
         }
         expect(await ico.totalAmountRaised()).to.equal(parseEther("5000"));
 
         // Advance to Phase general
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
         expect(await ico.currentPhase()).to.equal(1);
 
         for(let i = 5; i < 30; i++) {
@@ -142,15 +143,15 @@ describe("ICO", function () {
     });
 
     it("maximum contribution 1000ETH during Phase General", async () => {
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
         expect(await ico.currentPhase()).to.equal(1);
         await expect(ico.connect(larry).buy({ value: parseEther("1001")})).to.be.revertedWith("EXCEEDS_MAX_CONTRIBUTION");
     });
 
     it("any investors can purchase tokens during Phase Open", async () => {
         // Advance to Phase open
-        await ico.connect(creator).advancePhase();
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
+        await ico.connect(creator).advancePhase(1);
         expect(await ico.currentPhase()).to.equal(2);
 
         for(let i = 0; i < 5; i++) {
@@ -165,13 +166,13 @@ describe("ICO", function () {
         // collect some funds during Phase Seed
         expect(await ico.currentPhase()).to.equal(0);
         for(let i = 0; i < 5; i++) {
-            await ico.connect(creator).whitelistAddress(addrs[i].address);
+            await ico.connect(creator).whitelistAddress(addrs[i].address, true);
             await ico.connect(addrs[i]).buy({ value: parseEther("1000")});
         }
         expect(await ico.totalAmountRaised()).to.equal(parseEther("5000"));
 
         // Collect some funds during Phase General
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
         expect(await ico.currentPhase()).to.equal(1);
         for(let i = 5; i < 10; i++) {
             await ico.connect(addrs[i]).buy({ value: parseEther("1000")});
@@ -179,7 +180,7 @@ describe("ICO", function () {
         expect(await ico.totalAmountRaised()).to.equal(parseEther("5000").add(parseEther("5000")));
 
         // Collect funds during Phase Open
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(1);
         expect(await ico.currentPhase()).to.equal(2);
         await ico.connect(addrs[10]).buy({ value: parseEther("19000")});
 
@@ -194,8 +195,8 @@ describe("ICO", function () {
 
     it("no maximum contribution during Phase Open", async () => {
         // Advance to Phase Open immediately
-        await ico.connect(creator).advancePhase();
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
+        await ico.connect(creator).advancePhase(1);
         expect(await ico.currentPhase()).to.equal(2);
 
         await ico.connect(larry).buy({ value: parseEther("30000")});
@@ -203,10 +204,10 @@ describe("ICO", function () {
     });
 
     it("collect tokens in Phase Open", async () => {
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
         // Buy tokens during Phase General
         await ico.connect(larry).buy({ value: parseEther("1000")});
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(1);
         // Buy tokens during Phase Open
         await ico.connect(jenny).buy({ value: parseEther("2000")});
 
@@ -223,14 +224,14 @@ describe("ICO", function () {
     });
 
     it("collect tokens in only Phase Open", async () => {
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
         await ico.connect(larry).buy({ value: parseEther("1000")});
         await expect(ico.connect(larry).collectTokens()).to.be.revertedWith("INCORRECT_PHASE");
     });
 
     it("prevents over collecting of tokens", async () => {
-        await ico.connect(creator).advancePhase();
-        await ico.connect(creator).advancePhase();
+        await ico.connect(creator).advancePhase(0);
+        await ico.connect(creator).advancePhase(1);
         await ico.connect(larry).buy({ value: parseEther("30000")});
         await ico.connect(larry).collectTokens();
         // cannot collect tokens twice
@@ -247,7 +248,7 @@ describe("ICO", function () {
         // contribute until advancing through Phase Seed
         expect(await ico.currentPhase()).to.equal(0);
         for(let i = 0; i < 10; i++) {
-            await ico.connect(creator).whitelistAddress(addrs[i].address);
+            await ico.connect(creator).whitelistAddress(addrs[i].address, true);
             await ico.connect(addrs[i]).buy({ value: parseEther("1500")});
         }
         expect(await ico.totalAmountRaised()).to.equal(parseEther("15000"));
@@ -268,19 +269,39 @@ describe("ICO", function () {
         expect(await spaceCoin.balanceOf(addrs[0].address)).to.equal(parseEther("1500").mul(5));
     });
 
-    it("treasury can withdraw contributions after the goal is reached", async () => {
-        await ico.connect(creator).advancePhase();
-        await ico.connect(creator).advancePhase();
-        await ico.connect(larry).buy({ value: parseEther("30000")});
-        await expect(await ico.connect(creator).withdrawContributions())
-            .to.changeEtherBalance(creator, parseEther("30000"));
-    });
+    // it("treasury can withdraw contributions after the goal is reached", async () => {
+    //     await ico.connect(creator).advancePhase();
+    //     await ico.connect(creator).advancePhase();
+    //     await ico.connect(larry).buy({ value: parseEther("30000")});
+    //     await expect(await ico.connect(creator).withdrawContributions())
+    //         .to.changeEtherBalance(creator, parseEther("30000"));
+    // });
 
-    it("forces treasury to wait until the goal is reached to withdraw the contributions", async () => {
-        await ico.connect(creator).advancePhase();
-        await ico.connect(creator).advancePhase();
-        await ico.connect(larry).buy({ value: parseEther("29999")});
-        await expect(ico.connect(creator).withdrawContributions())
-            .to.be.revertedWith("ICO_ACTIVE");
+    // it("forces treasury to wait until the goal is reached to withdraw the contributions", async () => {
+    //     await ico.connect(creator).advancePhase();
+    //     await ico.connect(creator).advancePhase();
+    //     await ico.connect(larry).buy({ value: parseEther("29999")});
+    //     await expect(ico.connect(creator).withdrawContributions())
+    //         .to.be.revertedWith("ICO_ACTIVE");
+    // });
+
+    it("adds liquidity to pool upon completion of ICO", async () => {
+        await ico.connect(creator).advancePhase(0);
+        await ico.connect(creator).advancePhase(1);
+        await ico.connect(larry).buy({ value: parseEther("30000")});
+        const spcAddress = await ico.token();
+        const spaceCoinFactory = await ethers.getContractFactory("SpaceCoin");
+        const spaceCoin: SpaceCoin = spaceCoinFactory.attach(spcAddress);
+        const LiquidityPoolFactory = await ethers.getContractFactory("LiquidityPool");
+        const RouterFactory = await ethers.getContractFactory("Router");
+        const liquidityPool = await LiquidityPoolFactory.deploy(spcAddress);
+        const router = await RouterFactory.deploy(liquidityPool.address, spcAddress);
+        await router.deployed();
+
+        await expect(await ico.connect(creator).withdrawContributions(router.address))
+            .to.changeEtherBalance(liquidityPool, parseEther("30000"));
+        expect(await spaceCoin.balanceOf(liquidityPool.address)).to.equal(parseEther("150000"));
+
+        // TODO: TEST THAT LP ADDRESS IS CREDITED WITH 150_000 SPC
     });
 });

@@ -2,13 +2,14 @@
 pragma solidity ^0.8.0;
 
 import "./SpaceCoin.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./interfaces/IRouter.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "hardhat/console.sol";
 
 /// @title A contract for raising ICO funds
 /// @author Kevin Cowley
-contract ICO is ReentrancyGuard {
+contract ICO {
     /// @dev This implementation using `SpaceCoin` does not need SafeERC20
     /// This was added in case `SpaceCoin` is swapped out for a token that isn't based
     /// off openzeppelin's ERC20
@@ -26,14 +27,6 @@ contract ICO is ReentrancyGuard {
     /// @notice tracks how much wei an individual has contributed
     mapping(address => uint256) public userContributions;
 
-    /// @notice look up by phase for max contribution per person
-    /// @dev treated as immutable, values are initialized in constructor
-    mapping(Phase => uint256) public maxIndividualContribution;
-
-    /// @notice look up by phase for max contribution before changing phases or ending the ICO
-    /// @dev treated as immutable, values are initialized in constructor
-    mapping(Phase => uint256) public maxPhaseTotalContribution;
-
     /// @notice Phase Seed, General, or Open
     Phase public currentPhase;
     enum Phase {
@@ -41,6 +34,7 @@ contract ICO is ReentrancyGuard {
         GENERAL,
         OPEN
     }
+    bool public transferredSpc;
 
     /// @notice toggle controlled by `treasury` to pause/resume collection contributions
     bool public isPaused;
@@ -53,24 +47,34 @@ contract ICO is ReentrancyGuard {
 
     string private constant INCORRECT_PHASE = "INCORRECT_PHASE";
 
+    /// @notice Guard against reentrancy
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+    uint256 private _status;
+    modifier nonReentrant() {
+        require(_status != _ENTERED, "REENTRANT_CALL");
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
+    }
+
+
     /// @notice state change events
     event PhaseAdvanced(string _newPhase);
     event UserContribution(address indexed _contributor, uint256 _amount);
     event AddressWhitelisted(address _contributor);
-    event ICOStatusChange(string _status);
-    event ContributionsWithdrawn(uint256 _amount);
+    event ICOStatusChange(string _newStatus);
+    event ContributionsWithdrawn();
     event TokensCollected(address indexed _contributor, uint256 _amount);
 
-    constructor() {
+    constructor(address[] memory _whitelist) {
         treasury = msg.sender;
 
-        maxIndividualContribution[Phase.SEED] = 1500 ether;
-        maxIndividualContribution[Phase.GENERAL] = 1000 ether;
-        maxIndividualContribution[Phase.OPEN] = 30000 ether;
-
-        maxPhaseTotalContribution[Phase.SEED] = 15000 ether;
-        maxPhaseTotalContribution[Phase.GENERAL] = 30000 ether;
-        maxPhaseTotalContribution[Phase.OPEN] = 30000 ether;
+        uint length = _whitelist.length;
+        for(uint i = 0; i < length;) {
+            whitelist[_whitelist[i]] = true;
+            unchecked { i++; }
+        }
     }
 
     modifier onlyTreasury() {
@@ -87,18 +91,36 @@ contract ICO is ReentrancyGuard {
         return whitelist[msg.sender];
     }
 
+    function getMaxIndividualContribution(Phase _currentPhase) public pure returns (uint maxContribution) {
+        if (_currentPhase == Phase.SEED) {
+            maxContribution = 1500 ether;
+        } else if (_currentPhase == Phase.GENERAL) {
+            maxContribution = 1000 ether;
+        } else {
+            maxContribution = 30_000 ether;
+        }
+    }
+
+    function getMaxPhaseContribution(Phase _currentPhase) public pure returns (uint maxContribution) {
+        if (_currentPhase == Phase.SEED) {
+            maxContribution = 15_000 ether;
+        } else {
+            maxContribution = 30_000 ether;
+        }
+    }
+
     /// @notice buy SPC
     /// total contributions must be under or exactly equal to the phase goal to be valid
     function buy() public payable {
         require(!isPaused, "PAUSED_CAMPAIGN");
         require(
             userContributions[msg.sender] + msg.value <=
-                maxIndividualContribution[currentPhase],
+                getMaxIndividualContribution(currentPhase),
             "EXCEEDS_MAX_CONTRIBUTION"
         );
         require(
             totalAmountRaised + msg.value <=
-                maxPhaseTotalContribution[currentPhase],
+                getMaxPhaseContribution(currentPhase),
             "INSUFFICIENT_AVAILABILITY"
         );
         require(whitelisted(), "WHITELIST");
@@ -109,16 +131,19 @@ contract ICO is ReentrancyGuard {
 
         /// @notice if the contribution caps out the current phase, advance to the next phase
         if (
-            totalAmountRaised == maxPhaseTotalContribution[currentPhase] &&
+            totalAmountRaised == getMaxPhaseContribution(currentPhase) &&
             currentPhase != Phase.OPEN
         ) {
-            _advancePhase();
+            _advancePhase(currentPhase);
         }
     }
 
     /// @dev private function only available to this contract for programatically advancing
     /// @notice call `advancePhase()` from the treasury address to advance phases from outside this contract
-    function _advancePhase() private {
+    /// @notice this MUST be a separate function to allow for the onlyTreasury modifier AND for it to be called internally
+    function _advancePhase(Phase expectedCurrentPhase) private {
+        /// @notice Guard against calling advancePhase too many times
+        require(expectedCurrentPhase == currentPhase, INCORRECT_PHASE);
         require(
             currentPhase == Phase.SEED || currentPhase == Phase.GENERAL,
             INCORRECT_PHASE
@@ -136,13 +161,13 @@ contract ICO is ReentrancyGuard {
     }
 
     /// @notice accessible function for treasury to manually advance phases
-    function advancePhase() external onlyTreasury {
-        _advancePhase();
+    function advancePhase(Phase expectedCurrentPhase) external onlyTreasury {
+        _advancePhase(expectedCurrentPhase);
     }
-
     /// @notice add address to whitelist (treasury only)
-    function whitelistAddress(address _address) external onlyTreasury {
-        whitelist[_address] = true;
+    /// @notice specify toWhitelist = false to remove an address
+    function whitelistAddress(address _address, bool toWhitelist) external onlyTreasury {
+        whitelist[_address] = toWhitelist;
         emit AddressWhitelisted(_address);
     }
 
@@ -150,17 +175,6 @@ contract ICO is ReentrancyGuard {
     function toggleIsPaused(bool _pause) external onlyTreasury {
         isPaused = _pause;
         emit ICOStatusChange(_pause ? "Paused" : "Resumed");
-    }
-
-    /// @notice allow treasury to collect funds once the ICO ends
-    function withdrawContributions() external onlyTreasury nonReentrant {
-        require(totalAmountRaised == 30000 ether, "ICO_ACTIVE");
-        uint256 withdrawalAmount = totalAmountRaised;
-        delete totalAmountRaised;
-
-        (bool sent, ) = treasury.call{value: withdrawalAmount}("");
-        require(sent, "WITHDRAWAL_FAILURE");
-        emit ContributionsWithdrawn(withdrawalAmount);
     }
 
     /// @notice pull method for contributors to collect their tokens once Phase Open starts
@@ -175,7 +189,14 @@ contract ICO is ReentrancyGuard {
         emit TokensCollected(msg.sender, amount);
     }
 
-    receive() external payable {
-        buy();
+    /// @notice single-use function to transfer all ETH earned to liquidity pool once ICO ends
+    function withdrawContributions(address routerAddress) external onlyTreasury nonReentrant {
+        require(totalAmountRaised == 30_000 ether, "ICO_ACTIVE");
+        delete totalAmountRaised;
+
+        IRouter router = IRouter(routerAddress);
+        token.approve(routerAddress, 150_000 ether);
+        router.addLiquidity{value: 30_000 ether}(150_000 ether);
+        emit ContributionsWithdrawn();
     }
 }

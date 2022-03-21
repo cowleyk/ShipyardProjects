@@ -19,11 +19,6 @@ contract SpaceCoin is ERC20 {
         _mint(treasury, 500000 ether);
     }
 
-    modifier onlyTreasurer() {
-        require(msg.sender == treasury, "ONLY_TREASURY");
-        _;
-    }
-
     /// @notice override internal transfer function to allow for collecting taxes
     function _transfer(
         address sender,
@@ -40,7 +35,8 @@ contract SpaceCoin is ERC20 {
     }
 
     /// @notice allow toggling of tax collection
-    function toggleTax(bool _tax) external onlyTreasurer {
+    function toggleTax(bool _tax) external {
+        require(msg.sender == treasury, "ONLY_TREASURY");
         collectTaxes = _tax;
     }
 }
