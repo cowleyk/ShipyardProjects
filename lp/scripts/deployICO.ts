@@ -20,12 +20,6 @@ async function main() {
   const ICO = await ethers.getContractFactory("ICO");
   const ico = await ICO.deploy(addrs.map(addr => addr.address));
 
-  const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
-  const liquidityPool = await LiquidityPool.deploy();
-
-  const Router = await ethers.getContractFactory("Router");
-  const router = await Router.deploy();
-
   await ico.deployed();
 
   console.log("ico deployed to:", ico.address);
