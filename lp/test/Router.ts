@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { SpaceCoin, Router, LiquidityPool } from "../typechain";
-const { utils: { parseEther, formatEther } } = ethers;
+const { utils: { parseEther } } = ethers;
 
 describe("Router", function () {
     let router: Router;
@@ -61,9 +61,51 @@ describe("Router", function () {
         const addTxn = await router.connect(jenny).addLiquidity(parseEther("10"), {value: parseEther("10")});
         expect(await spaceCoin.balanceOf(liquidityPool.address)).to.equal(parseEther("60"));
 
+        // jenny sent 10 ETH but got 8 ETH returned
         await expect(addTxn).to.changeEtherBalance(jenny, parseEther("2").mul(-1));
         await expect(addTxn).to.changeEtherBalance(liquidityPool, parseEther("2"));
-    })
+    });
+
+    it("does not transfer extra SPC", async () => {
+        // set up liquidity pool
+        await spaceCoin.approve(router.address, parseEther("50"));
+        await router.addLiquidity(parseEther("50"), {value: parseEther("10")});        
+        await spaceCoin.transfer(jenny.address, parseEther("500"));
+
+        const jennySpcBefore = await spaceCoin.balanceOf(jenny.address);
+        await spaceCoin.connect(jenny).approve(router.address, parseEther("100"));
+        const addTxn = await router.connect(jenny).addLiquidity(parseEther("100"), {value: parseEther("1")});
+        const jennySpcAfter = await spaceCoin.balanceOf(jenny.address);
+
+        expect(await spaceCoin.balanceOf(liquidityPool.address)).to.equal(parseEther("55"));
+        expect(jennySpcBefore.sub(jennySpcAfter)).to.equal(parseEther("5"));
+        expect(addTxn).to.changeEtherBalance(liquidityPool, parseEther("1"));
+    });
+
+    it("removes liquidity", async () => {
+        // set up liquidity pool
+        await spaceCoin.approve(router.address, parseEther("50"));
+        await router.addLiquidity(parseEther("50"), {value: parseEther("10")});        
+        await spaceCoin.transfer(jenny.address, parseEther("500"));
+
+        // jenny earn KVY tokens
+        await spaceCoin.connect(jenny).approve(router.address, parseEther("10"));
+        await router.connect(jenny).addLiquidity(parseEther("10"), {value: parseEther("2")});
+        const jennyKvyBefore = await liquidityPool.balanceOf(jenny.address);
+        expect(jennyKvyBefore.gt(parseEther("2"))).to.be.true;
+
+        const jennyEthBefore = await jenny.getBalance();
+        const jennySpcBefore = await spaceCoin.balanceOf(jenny.address);
+        await liquidityPool.connect(jenny).approve(router.address, parseEther("2"))
+        await router.connect(jenny).removeLiquidity(parseEther("2"));
+        const jennyKvyAfter = await liquidityPool.balanceOf(jenny.address);
+        const jennyEthAfter = await jenny.getBalance();
+        const jennySpcAfter = await spaceCoin.balanceOf(jenny.address);
+
+        expect(jennyKvyBefore.sub(jennyKvyAfter)).to.equal(parseEther("2"));
+        expect(jennyEthAfter.gt(jennyEthBefore)).to.be.true;
+        expect(jennySpcAfter.gt(jennySpcBefore)).to.be.true;
+    });
 
     it("swaps ETH for SPC", async () => {
         // set up liquidity pool
@@ -76,7 +118,7 @@ describe("Router", function () {
 
         const jennySpcBalance = await spaceCoin.balanceOf(jenny.address);
         expect(jennySpcBalance.gt(minSpcReturn)).to.be.true;
-        expect(jennySpcBalance.lte(spcEstimate)).to.be.true;
+        expect(jennySpcBalance.eq(spcEstimate)).to.be.true;
     });
 
     it("swaps SPC for ETH", async () => {
@@ -114,7 +156,12 @@ describe("Router", function () {
         expect(ethEstimate < parseEther("1").mul(5)).to.be.true;
     });
 
-    it("", async () => {
+    // TODO:
+    // TEST SLIPPAGE FOR BOTH SWAPS
+    // TEST WHEN RESERVE = 0
+    // TEST WHEN AMOUNT = 0 (SWAPS AND ADD)
+
+    it("rejects ETH deposit if slippage is too great", async () => {
 
     });
 });
