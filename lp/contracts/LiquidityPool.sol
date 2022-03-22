@@ -37,7 +37,7 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
             amountKvy = Math.sqrt(mintableEth * mintableSpc);
         } else {
             /// @notice mint liquidity proportional to the current totalSupply or SPC or ETH
-            /// liquidity = delta_token / previous_token * total_KVY
+            /// @dev based on: liquidity = delta_token / previous_token * total_KVY
             uint liqEth = mintableEth * _totalSupplyKvy / _reserveEth;
             uint liqSpc = mintableSpc * _totalSupplyKvy / _reserveSpc;
 
@@ -59,6 +59,7 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
         uint currentSpc = spcToken.balanceOf(address(this));
         require(currentEth > 0 && currentSpc > 0 && liquidity > 0, "INSUFFICIENT_LIQUIDITY");
 
+        /// @dev no need to require(_totalSupplyKvy > 0), already checking that liquidity > 0
         uint _totalSupplyKvy = totalSupply();
 
         uint returnEth = liquidity * currentEth  / _totalSupplyKvy;
