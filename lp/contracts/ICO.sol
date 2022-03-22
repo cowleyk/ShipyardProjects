@@ -188,18 +188,14 @@ contract ICO {
         emit TokensCollected(msg.sender, amount);
     }
 
-    /// @notice single-use function to transfer all ETH earned to liquidity pool once ICO ends
-    function withdrawContributions(address routerAddress) external onlyTreasury nonReentrant {
-        require(totalAmountRaised == 30_000 ether, "ICO_ACTIVE");
+    /// @notice allow treasury to collect funds once the ICO ends
+    function withdrawContributions() external onlyTreasury nonReentrant {
+        require(totalAmountRaised == 30000 ether, "ICO_ACTIVE");
+        uint256 withdrawalAmount = totalAmountRaised;
         delete totalAmountRaised;
 
-        /// @notice pause ICO to prevent buying through ICO contract after withdrawal
-        /// @notice allows Treasury address to restart ICO if desired
-        isPaused = true;
-
-        IRouter router = IRouter(routerAddress);
-        token.approve(routerAddress, 150_000 ether);
-        router.addLiquidity{value: 30_000 ether}(150_000 ether);
+        (bool sent, ) = treasury.call{value: withdrawalAmount}("");
+        require(sent, "WITHDRAWAL_FAILURE");
         emit ContributionsWithdrawn();
     }
 }
