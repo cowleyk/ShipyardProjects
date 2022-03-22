@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { SpaceCoin, Router, LiquidityPool } from "../typechain";
+import { formatEther } from "ethers/lib/utils";
 const { utils: { parseEther } } = ethers;
 
 describe("Router", function () {
@@ -82,6 +83,16 @@ describe("Router", function () {
         expect(addTxn).to.changeEtherBalance(liquidityPool, parseEther("1"));
     });
 
+    it("rejects add liquidity when no value is provided", async () => {
+        // set up liquidity pool
+        await spaceCoin.approve(router.address, parseEther("50"));
+        await router.addLiquidity(parseEther("50"), {value: parseEther("10")});        
+
+        await spaceCoin.approve(router.address, parseEther("5"));
+        await expect(router.addLiquidity(parseEther("0"), { value: parseEther("1") })).to.be.revertedWith("INSUFFICIENT_AMOUNT");
+        await expect(router.addLiquidity(parseEther("5"), { value: parseEther("0") })).to.be.revertedWith("INSUFFICIENT_AMOUNT");
+    });
+
     it("removes liquidity", async () => {
         // set up liquidity pool
         await spaceCoin.approve(router.address, parseEther("50"));
@@ -105,6 +116,18 @@ describe("Router", function () {
         expect(jennyKvyBefore.sub(jennyKvyAfter)).to.equal(parseEther("2"));
         expect(jennyEthAfter.gt(jennyEthBefore)).to.be.true;
         expect(jennySpcAfter.gt(jennySpcBefore)).to.be.true;
+    });
+
+    it("rejects remove liquidity attempt when there is not sufficient reserves", async () => {
+        await expect(router.removeLiquidity(parseEther("1"))).to.be.revertedWith("INSUFFICIENT_LIQUIDITY");
+        
+        await spaceCoin.approve(router.address, parseEther("500"));
+        await router.addLiquidity(parseEther("500"), {value: parseEther("100")});
+        
+        await expect(router.removeLiquidity(parseEther("0"))).to.be.revertedWith("INSUFFICIENT_LIQUIDITY");
+
+        await liquidityPool.approve(router.address, parseEther("1"));
+        await router.removeLiquidity(parseEther("1"));
     });
 
     it("swaps ETH for SPC", async () => {
@@ -156,12 +179,53 @@ describe("Router", function () {
         expect(ethEstimate < parseEther("1").mul(5)).to.be.true;
     });
 
-    // TODO:
-    // TEST SLIPPAGE FOR BOTH SWAPS
-    // TEST WHEN RESERVE = 0
-    // TEST WHEN AMOUNT = 0 (SWAPS AND ADD)
+    it("rejects swaps that won't return a minimum SPC", async () => {
+        await spaceCoin.approve(router.address, parseEther("500"));
+        await router.addLiquidity(parseEther("500"), {value: parseEther("100")});
 
-    it("rejects ETH deposit if slippage is too great", async () => {
+        const minSpcReturn = parseEther("14.7");
+        await expect(router.connect(jenny).swapEthForSpc(minSpcReturn, { value: parseEther("3")}))
+            .to.be.revertedWith("SLIPPAGE");
+    });
 
+    it("rejects swaps that won't return a minimum ETH", async () => {
+        await spaceCoin.approve(router.address, parseEther("500"));
+        await router.addLiquidity(parseEther("500"), {value: parseEther("100")});
+
+        await spaceCoin.transfer(jenny.address, parseEther("15"))
+        await spaceCoin.connect(jenny).approve(router.address, parseEther("15"));
+
+        const minEthReturn = parseEther("2.9");
+        await expect(router.connect(jenny).swapSpcforEth(parseEther("15"), minEthReturn))
+            .to.be.revertedWith("SLIPPAGE");
+    });
+
+    it("rejects swaps when there are no reserves in the pool", async () => {
+        const minSpcReturn = parseEther("14");
+        await expect(router.connect(jenny).swapEthForSpc(minSpcReturn, { value: parseEther("3")}))
+            .to.be.revertedWith("INSUFFICIENT_LIQUIDITY");
+
+        await spaceCoin.transfer(jenny.address, parseEther("15"))
+        await spaceCoin.connect(jenny).approve(router.address, parseEther("15"));
+
+        const minEthReturn = parseEther("2");
+        await expect(router.connect(jenny).swapSpcforEth(parseEther("15"), minEthReturn))
+            .to.be.revertedWith("INSUFFICIENT_LIQUIDITY");
+    });
+
+    it("rejects swaps that do not depoit SPC or ETH", async () => {
+        await spaceCoin.approve(router.address, parseEther("500"));
+        await router.addLiquidity(parseEther("500"), {value: parseEther("100")});
+
+        await spaceCoin.transfer(jenny.address, parseEther("15"))
+        await spaceCoin.connect(jenny).approve(router.address, parseEther("15"));
+
+        const minEthReturn = parseEther("2");
+        await expect(router.connect(jenny).swapSpcforEth(parseEther("0"), minEthReturn))
+            .to.be.revertedWith("INSUFFICIENT_INPUT_AMOUNT");
+
+        const minSpcReturn = parseEther("14");
+        await expect(router.connect(jenny).swapEthForSpc(minSpcReturn, { value: parseEther("0")}))
+            .to.be.revertedWith("INSUFFICIENT_INPUT_AMOUNT");
     });
 });
