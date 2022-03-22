@@ -21,9 +21,7 @@ contract Router is ReentrancyGuard, IRouter {
         uint amountSpc;
         (uint reserveEth, uint reserveSpc) = pool.getReserves();
 
-        // QUESTION: WHY DOES UNISWAP DO reserveEth == 0 && reserveSpc == 0 ?
-            // WHAT AM I MISSING?
-        if (reserveEth == 0 || reserveSpc == 0) {
+        if (reserveEth == 0 && reserveSpc == 0) {
             amountEth = msg.value;
             amountSpc = depositedSpc;
         } else {
