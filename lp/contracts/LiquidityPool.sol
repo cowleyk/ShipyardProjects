@@ -14,7 +14,7 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
     uint private reserveEth;
     uint private reserveSpc;
     uint private klast;
-    // uint private constant MINIMUM_LIQUIDITY = 500;
+    uint private constant MINIMUM_LIQUIDITY = 1000;
 
     constructor(address _spcToken) ERC20("KevvySwaps Coin", "KVY") {
         spcToken = IERC20(_spcToken);
@@ -34,14 +34,12 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
 
         if(_totalSupplyKvy == 0) {
             /// @notice assume initial liquidity added is equal value of each token
-            amountKvy = Math.sqrt(mintableEth * mintableSpc);
+            amountKvy = Math.sqrt(mintableEth * mintableSpc) - MINIMUM_LIQUIDITY;
         } else {
             /// @notice mint liquidity proportional to the current totalSupply or SPC or ETH
             /// @dev based on: liquidity = delta_token / previous_token * total_KVY
             uint liqEth = mintableEth * _totalSupplyKvy / _reserveEth;
             uint liqSpc = mintableSpc * _totalSupplyKvy / _reserveSpc;
-
-            // QUESTION: ANY REASON ^^ USES RESERVE INSTEAD OF CURRENT?
 
             /// @notice use the minimum of the liquidity calculations
             amountKvy = liqSpc < liqEth ? liqSpc : liqEth;
@@ -59,17 +57,20 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
         uint currentSpc = spcToken.balanceOf(address(this));
         require(currentEth > 0 && currentSpc > 0 && liquidity > 0, "INSUFFICIENT_LIQUIDITY");
 
-        /// @dev no need to require(_totalSupplyKvy > 0), already checking that liquidity > 0
         uint _totalSupplyKvy = totalSupply();
+        /// @dev Subtracting MINIMUM_LIQUIDITY from the initial minting in side _mint and this require
+            /// help prevent the minimum price of a share from skyrocketting
+            /// this require is done to mimic Uniswap's _mint(address(0), MINIMUM_LIQUIDITY)
+        require(_totalSupplyKvy > MINIMUM_LIQUIDITY, "MINIMUM_LIQUIDITY");
 
         uint returnEth = liquidity * currentEth  / _totalSupplyKvy;
         uint returnSpc = liquidity * currentSpc  / _totalSupplyKvy;
 
+        _burn(address(this), liquidity);
         (bool successEth, ) = burner.call{value: returnEth}("");
         require(successEth, "FAILED_ETH_TRANSFER");
         bool successSpc = spcToken.transfer(burner, returnSpc);
         require(successSpc, "FAILED_SPC_TRANSFER");
-        _burn(address(this), liquidity);
         _update(address(this).balance, spcToken.balanceOf(address(this)));
     }
 

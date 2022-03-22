@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { LiquidityPool, Router, SpaceCoin } from "../typechain";
+import { BigNumber } from "ethers";
 const { utils: { parseEther, formatEther } } = ethers;
 
 describe("LiquidityPool", function () {
@@ -37,7 +38,7 @@ describe("LiquidityPool", function () {
         await creator.sendTransaction(txn);
 
         await liquidityPool.mint(creator.address);
-        expect(await liquidityPool.balanceOf(creator.address)).to.equal(parseEther("50"));
+        expect(await liquidityPool.balanceOf(creator.address)).to.equal(parseEther("50").sub(BigNumber.from(1000)));
     });
 
     it("mints KVY when funds are available", async function () {
@@ -169,11 +170,15 @@ describe("LiquidityPool", function () {
         await liquidityPool.connect(jenny).transfer(liquidityPool.address, parseEther("2"));
 
         const { _reserveSpc: spcBefore, _reserveEth: ethBefore } = await liquidityPool.getReserves();
+        const totalKvy = await liquidityPool.totalSupply();
         await liquidityPool.burn(jenny.address);
         const { _reserveSpc: spcAfter, _reserveEth: ethAfter } = await liquidityPool.getReserves();
 
-        expect(spcBefore.sub(spcAfter)).to.equal(parseEther("2"));
-        expect(ethBefore.sub(ethAfter)).to.equal(parseEther("2"));
+        const returnEth = parseEther("2").mul(ethBefore).div(totalKvy);
+        const returnSpc = parseEther("2").mul(spcBefore).div(totalKvy);
+
+        expect(ethAfter).to.equal(ethBefore.sub(returnEth));
+        expect(spcAfter).to.equal(spcBefore.sub(returnSpc));
     });
     // ------------
 
