@@ -194,6 +194,10 @@ contract ICO {
         require(totalAmountRaised == 30_000 ether, "ICO_ACTIVE");
         delete totalAmountRaised;
 
+        /// @notice pause ICO to prevent buying through ICO contract after withdrawal
+        /// @notice allows Treasury address to restart ICO if desired
+        isPaused = true;
+
         IRouter router = IRouter(routerAddress);
         token.approve(routerAddress, 150_000 ether);
         router.addLiquidity{value: 30_000 ether}(150_000 ether);

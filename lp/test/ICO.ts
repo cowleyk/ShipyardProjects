@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { ICO, SpaceCoin } from "../typechain";
+import { ICO, LiquidityPool, Router, SpaceCoin } from "../typechain";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { Contract, Wallet } from "ethers";
-const { utils: { parseEther, formatEther } } = ethers;
+import { Wallet } from "ethers";
+const { utils: { parseEther } } = ethers;
 
 
 describe("ICO", function () {
@@ -269,39 +269,41 @@ describe("ICO", function () {
         expect(await spaceCoin.balanceOf(addrs[0].address)).to.equal(parseEther("1500").mul(5));
     });
 
-    // it("treasury can withdraw contributions after the goal is reached", async () => {
-    //     await ico.connect(creator).advancePhase();
-    //     await ico.connect(creator).advancePhase();
-    //     await ico.connect(larry).buy({ value: parseEther("30000")});
-    //     await expect(await ico.connect(creator).withdrawContributions())
-    //         .to.changeEtherBalance(creator, parseEther("30000"));
-    // });
-
-    // it("forces treasury to wait until the goal is reached to withdraw the contributions", async () => {
-    //     await ico.connect(creator).advancePhase();
-    //     await ico.connect(creator).advancePhase();
-    //     await ico.connect(larry).buy({ value: parseEther("29999")});
-    //     await expect(ico.connect(creator).withdrawContributions())
-    //         .to.be.revertedWith("ICO_ACTIVE");
-    // });
+    it("forces treasury to wait until the goal is reached to withdraw the contributions", async () => {
+        await ico.connect(creator).advancePhase(0);
+        await ico.connect(creator).advancePhase(1);
+        await ico.connect(larry).buy({ value: parseEther("29999")});
+        await expect(ico.connect(creator).withdrawContributions(Wallet.createRandom().address))
+            .to.be.revertedWith("ICO_ACTIVE");
+    });
 
     it("adds liquidity to pool upon completion of ICO", async () => {
+        // complete ICO
         await ico.connect(creator).advancePhase(0);
         await ico.connect(creator).advancePhase(1);
         await ico.connect(larry).buy({ value: parseEther("30000")});
+
+        // establish SpaceCoin, LiquidityPool, and Router addresses
         const spcAddress = await ico.token();
         const spaceCoinFactory = await ethers.getContractFactory("SpaceCoin");
         const spaceCoin: SpaceCoin = spaceCoinFactory.attach(spcAddress);
         const LiquidityPoolFactory = await ethers.getContractFactory("LiquidityPool");
         const RouterFactory = await ethers.getContractFactory("Router");
-        const liquidityPool = await LiquidityPoolFactory.deploy(spcAddress);
-        const router = await RouterFactory.deploy(liquidityPool.address, spcAddress);
+        const liquidityPool: LiquidityPool = await LiquidityPoolFactory.deploy(spcAddress);
+        const router: Router = await RouterFactory.deploy(liquidityPool.address, spcAddress);
+        await spaceCoin.deployed();
+        await liquidityPool.deployed();
         await router.deployed();
 
+        // withdrawContributions sends 30_000 ETH + 150_000 SPC to liquidity pool
         await expect(await ico.connect(creator).withdrawContributions(router.address))
             .to.changeEtherBalance(liquidityPool, parseEther("30000"));
         expect(await spaceCoin.balanceOf(liquidityPool.address)).to.equal(parseEther("150000"));
+        // liquidity pool is minted KVY token for adding liquidity
+        const icoKVY = await liquidityPool.balanceOf(ico.address);
+        expect(icoKVY.gt(0)).to.be.true;
 
-        // TODO: TEST THAT LP ADDRESS IS CREDITED WITH 150_000 SPC
+        await expect(ico.connect(jenny).buy({ value: parseEther("20")}))
+            .to.be.revertedWith("PAUSED_CAMPAIGN");
     });
 });
