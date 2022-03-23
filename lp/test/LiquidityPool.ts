@@ -191,7 +191,8 @@ describe("LiquidityPool", function () {
         const ethDeposit = parseEther("1");
         await creator.sendTransaction({ to: liquidityPool.address, value: ethDeposit });
         const expectedSpc = await router.getSwapEstimate(ethDeposit, true);
-        await liquidityPool.swap(jenny.address, expectedSpc, false);
+        await liquidityPool.swapEthForSpc(jenny.address, expectedSpc);
+        // await liquidityPool.swap(jenny.address, expectedSpc, false);
 
         expect(await spaceCoin.balanceOf(jenny.address)).to.equal(expectedSpc);
     });
@@ -203,7 +204,8 @@ describe("LiquidityPool", function () {
         // sends 1 ETH, should get a little less than 5 spc back
         await creator.sendTransaction({ to: liquidityPool.address, value: parseEther("1") });
 
-        await expect(liquidityPool.swap(jenny.address, parseEther("5"), false)).to.be.revertedWith("INVALID_K");
+        // await expect(liquidityPool.swap(jenny.address, parseEther("5"), false)).to.be.revertedWith("INVALID_K");
+        await expect(liquidityPool.swapEthForSpc(jenny.address, parseEther("5"))).to.be.revertedWith("INVALID_K");
     });
 
     it("Ensures there was an ETH deposit before sending SPC", async () => {
@@ -212,7 +214,7 @@ describe("LiquidityPool", function () {
 
         // sends 1 ETH, should get a little less than 5 spc back
         const expectedSpc = await router.getSwapEstimate(parseEther("1"), true);
-        await expect(liquidityPool.swap(jenny.address, expectedSpc, false)).to.be.revertedWith("INSUFFICIENT_DEPOSIT");
+        await expect(liquidityPool.swapEthForSpc(jenny.address, expectedSpc)).to.be.revertedWith("INSUFFICIENT_DEPOSIT");
 
         expect(await spaceCoin.balanceOf(jenny.address)).to.equal(0);
     });
@@ -225,7 +227,8 @@ describe("LiquidityPool", function () {
         const spcDeposit = parseEther("5");
         await spaceCoin.transfer(liquidityPool.address, spcDeposit);
         const expectedEth = await router.getSwapEstimate(spcDeposit, false);
-        const swapTxn = await liquidityPool.swap(jenny.address, expectedEth, true);
+        const swapTxn = await liquidityPool.swapSpcForEth(jenny.address, expectedEth);
+        // const swapTxn = await liquidityPool.swap(jenny.address, expectedEth, true);
 
         await expect(swapTxn).to.changeEtherBalance(jenny, expectedEth);
     });
@@ -237,8 +240,7 @@ describe("LiquidityPool", function () {
         const spcDeposit = parseEther("5");
         await spaceCoin.transfer(liquidityPool.address, spcDeposit);
 
-        await expect(liquidityPool.swap(jenny.address, parseEther("1"), true)).to.be.revertedWith("INVALID_K");
-
+        await expect(liquidityPool.swapSpcForEth(jenny.address, parseEther("1"))).to.be.revertedWith("INVALID_K");
     });
 
     it("Ensures there was an SPC deposit before sending ETH", async () => {
@@ -247,7 +249,7 @@ describe("LiquidityPool", function () {
 
         const poolSpcBefore = await spaceCoin.balanceOf(liquidityPool.address);
         const expectedEth = await router.getSwapEstimate(parseEther("5"), false);
-        const swapTxn = liquidityPool.swap(jenny.address, expectedEth, true)
+        const swapTxn = liquidityPool.swapSpcForEth(jenny.address, expectedEth)
         await expect(swapTxn).to.be.revertedWith("INSUFFICIENT_DEPOSIT");
         const poolSpcAfter = await spaceCoin.balanceOf(liquidityPool.address);
 

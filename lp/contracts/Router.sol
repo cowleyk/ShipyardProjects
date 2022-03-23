@@ -81,7 +81,7 @@ contract Router is ReentrancyGuard, IRouter {
 
         (bool success,) = address(pool).call{value: msg.value}("");
         require(success, "FAILED_ETH_TRANSFER");
-        pool.swap(msg.sender, spcToSender, false);
+        pool.swapEthForSpc(msg.sender, spcToSender);
     }
 
     /// @param minEthReturn minimum amount user will accept for swap. Rely on client to convert from slippage %
@@ -95,7 +95,7 @@ contract Router is ReentrancyGuard, IRouter {
         /// @notice assumes user already approved
         bool success = spcToken.transferFrom(msg.sender, address(pool), spcDeposit);
         require(success, "FAILED_SPC_TRANSFER");
-        pool.swap(msg.sender, ethToSender, true);
+        pool.swapSpcForEth(msg.sender, ethToSender);
     }
 
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {

@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
-
+    
     IERC20 immutable public spcToken;
     uint private reserveEth;
     uint private reserveSpc;
@@ -74,36 +74,44 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
         _update(address(this).balance, spcToken.balanceOf(address(this)));
     }
 
-    function swap(address swapper, uint amountToTransfer, bool isAmountEth) external override nonReentrant {
-        /// @notice balances before swap
+    function swapEthForSpc(address swapper, uint amountSpcOut) external override nonReentrant {
         uint _reserveEth = reserveEth;
+
+        // *should* equal reserve
+        uint currentSpc = spcToken.balanceOf(address(this));
+        // reserve + amount transferred in
+        uint currentEth = address(this).balance;
+
+        uint expectedEth = currentEth - _reserveEth;
+        require(expectedEth > 0, "INSUFFICIENT_DEPOSIT");
+
+        uint kBefore = (100 * _reserveEth) * (100 * reserveSpc);
+        uint kAfter = (100 * currentEth - expectedEth) * (100 * (currentSpc - amountSpcOut));
+        require(kAfter >= kBefore, "INVALID_K");
+
+        bool success = spcToken.transfer(swapper, amountSpcOut);
+        require(success, "FAILED_SPC_TRANSFER");
+        _update(currentEth, spcToken.balanceOf(address(this)));
+    }
+
+    function swapSpcForEth(address swapper, uint amountEthOut) external override nonReentrant {
         uint _reserveSpc = reserveSpc;
 
-        // TODO: QUESTION: SPLIT THIS OUT INTO HANDLE ETH/HANDLE SPC FUNCTIONS
-
-        if(isAmountEth) {
-            /// @notice user deposited SPC, expects ETH out
-            (bool success,) = swapper.call{value: amountToTransfer}("");
-            require(success, "FAILED_ETH_TRANSFER");
-        } else {
-            /// @notice user deposited ETH, expects SPC out
-            bool success = spcToken.transfer(swapper, amountToTransfer);
-            require(success, "FAILED_SPC_TRANSFER");
-        }
-
-        /// @notice calculate the amounts deposited based on current vs reserve balances
+        // reserve + amount transferred in
         uint currentSpc = spcToken.balanceOf(address(this));
-        uint expectedSpc = currentSpc - (_reserveSpc - (isAmountEth ? 0 : amountToTransfer));
+        // *should* equal reserve
         uint currentEth = address(this).balance;
-        uint expectedEth = currentEth - (_reserveEth - (isAmountEth ? amountToTransfer : 0));
-        require(isAmountEth ? expectedSpc > 0 : expectedEth > 0, "INSUFFICIENT_DEPOSIT");
 
-        /// @notice K = amount_eth * amount_spc, it should never decrease
-        /// @notice use K to ensure expected 1% fee is removed
-        uint kBefore = (100 * _reserveEth) * (100 * _reserveSpc);
-        uint kAfter = (100 * currentEth - expectedEth) * (100 * currentSpc - expectedSpc);
+        uint expectedSpc = currentSpc - _reserveSpc;
+        require(expectedSpc > 0, "INSUFFICIENT_DEPOSIT");
+
+        uint kBefore = (100 * reserveEth) * (100 * _reserveSpc);
+        uint kAfter = (100 * (currentEth - amountEthOut)) * (100 * currentSpc - expectedSpc);
         require(kAfter >= kBefore, "INVALID_K");
-        _update(currentEth, currentSpc);
+
+        (bool success,) = swapper.call{value: amountEthOut}("");
+        require(success, "FAILED_ETH_TRANSFER");
+        _update(address(this).balance, currentSpc);
     }
 
     function getReserves() external view override returns (uint _reserveEth, uint _reserveSpc) {
