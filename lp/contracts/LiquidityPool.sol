@@ -59,7 +59,8 @@ contract LiquidityPool is ILiquidityPool, ERC20 {
 
         uint256 amountKvy;
         if (_totalSupplyKvy == 0) {
-            /// @notice assume initial liquidity added is equal value of each token
+            /// @notice mock-add a minute amount of initial liquidity to the pool
+            /// See require(_totalSupplyKvy > MINIMUM_LIQUIDITY) statement inside burn() for more explanation
             amountKvy =
                 Math.sqrt(mintableEth * mintableSpc) -
                 MINIMUM_LIQUIDITY;
@@ -92,9 +93,10 @@ contract LiquidityPool is ILiquidityPool, ERC20 {
         );
 
         uint256 _totalSupplyKvy = totalSupply();
-        /// @dev Subtracting MINIMUM_LIQUIDITY from the initial minting in side _mint and this require
-        /// help prevent the minimum price of a share from skyrocketting
-        /// this require is done to mimic Uniswap's _mint(address(0), MINIMUM_LIQUIDITY)
+        /// @dev Subtracting MINIMUM_LIQUIDITY from the initial minting inside _mint and this require
+        /// helps prevent the minimum price of a share from rising to high as to become a barrier for small providers
+        /// Mimics Uniswap's _mint(address(0), MINIMUM_LIQUIDITY)
+        /// This is a workaround for the ERC20's address-zero checks
         require(_totalSupplyKvy > MINIMUM_LIQUIDITY, "MINIMUM_LIQUIDITY");
 
         /// @notice calculate return amounts based on the proportion of burning liquidity / total liquidity
