@@ -2,7 +2,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { SpaceCoin, Router, LiquidityPool } from "../typechain";
-import { formatEther } from "ethers/lib/utils";
 const { utils: { parseEther } } = ethers;
 
 describe("Router", function () {
@@ -20,7 +19,6 @@ describe("Router", function () {
         const LiquidityPoolFactory = await ethers.getContractFactory("LiquidityPool");
         const RouterFactory = await ethers.getContractFactory("Router");
 
-        // TODO: DEPLOY SPACE COIN AND USE THAT ADDRESS INSIDE CONSTRUCTOR
         spaceCoin = await SpaceCoinFactory.deploy();
         liquidityPool = await LiquidityPoolFactory.deploy(spaceCoin.address);
         router = await RouterFactory.deploy(liquidityPool.address, spaceCoin.address);

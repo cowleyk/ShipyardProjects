@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { LiquidityPool, Router, SpaceCoin } from "../typechain";
 import { BigNumber } from "ethers";
-const { utils: { parseEther, formatEther } } = ethers;
+const { utils: { parseEther } } = ethers;
 
 describe("LiquidityPool", function () {
     let spaceCoin: SpaceCoin;
@@ -192,7 +192,6 @@ describe("LiquidityPool", function () {
         await creator.sendTransaction({ to: liquidityPool.address, value: ethDeposit });
         const expectedSpc = await router.getSwapEstimate(ethDeposit, true);
         await liquidityPool.swapEthForSpc(jenny.address, expectedSpc);
-        // await liquidityPool.swap(jenny.address, expectedSpc, false);
 
         expect(await spaceCoin.balanceOf(jenny.address)).to.equal(expectedSpc);
     });
@@ -204,7 +203,6 @@ describe("LiquidityPool", function () {
         // sends 1 ETH, should get a little less than 5 spc back
         await creator.sendTransaction({ to: liquidityPool.address, value: parseEther("1") });
 
-        // await expect(liquidityPool.swap(jenny.address, parseEther("5"), false)).to.be.revertedWith("INVALID_K");
         await expect(liquidityPool.swapEthForSpc(jenny.address, parseEther("5"))).to.be.revertedWith("INVALID_K");
     });
 
@@ -228,7 +226,6 @@ describe("LiquidityPool", function () {
         await creator.sendTransaction({ to: liquidityPool.address, value: parseEther("5") });
         const expectedEth = await router.getSwapEstimate(spcDeposit, false);
         const swapTxn = await liquidityPool.swapSpcForEth(jenny.address, expectedEth);
-        // const swapTxn = await liquidityPool.swap(jenny.address, expectedEth, true);
 
         await expect(swapTxn).to.changeEtherBalance(jenny, expectedEth);
 
@@ -243,7 +240,6 @@ describe("LiquidityPool", function () {
         await spaceCoin.transfer(liquidityPool.address, spcDeposit);
         const expectedEth = await router.getSwapEstimate(spcDeposit, false);
         const swapTxn = await liquidityPool.swapSpcForEth(jenny.address, expectedEth);
-        // const swapTxn = await liquidityPool.swap(jenny.address, expectedEth, true);
 
         await expect(swapTxn).to.changeEtherBalance(jenny, expectedEth);
     });
