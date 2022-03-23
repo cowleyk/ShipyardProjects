@@ -17,7 +17,7 @@ Will deploy;
 - Liquidity Pool contract
 - Router contract
 
-After deploying;
+After deploying to local hardhat network;
 - automatically adds 150_000 SPC and 30_000 ETH worth of liquidity
   - KVY tokens are minted to address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
@@ -33,5 +33,10 @@ Reward ETH "refund" for providing liquidity
 - Could be tiered; refund increases with more liquidity provided
 - Would have to be conditional on leaving liquidity in pool for a set amount of time
     - The refund could also be scaled linearly with time; the longer you leave it the more ETH you receive
+- Would need an external account to pull the ETH from, otherwise it would throw off the pool's calculation
 
-
+Reward third ECR20 token
+- Same as ETH "refund" concept; except a separate token would be minted
+- Initially amount minted = contant * LPToken minted
+- The longer a liquidity provided leaves their assets in the pool, the more of this separate token they earn
+  - This would require timestamping the LP tokens minted, and using using that mint time to calculate how long it was left in the pool when the LP token is burned
