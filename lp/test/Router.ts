@@ -226,4 +226,23 @@ describe("Router", function () {
         await expect(router.connect(jenny).swapEthForSpc(minSpcReturn, { value: parseEther("0")}))
             .to.be.revertedWith("INSUFFICIENT_INPUT_AMOUNT");
     });
+
+    it("earns fees for liquidity providers", async () => {
+        await spaceCoin.approve(router.address, parseEther("500"));
+        await router.addLiquidity(parseEther("500"), {value: parseEther("100")});
+
+        await spaceCoin.transfer(jenny.address, parseEther("10"));
+        const intitialJennySpc = await spaceCoin.balanceOf(jenny.address);
+        await spaceCoin.connect(jenny).approve(router.address, parseEther("10"));
+        await router.connect(jenny).addLiquidity(parseEther("10"), {value: parseEther("2")});
+
+        await spaceCoin.transfer(larry.address, parseEther("500"))
+        await spaceCoin.connect(larry).approve(router.address, parseEther("500"));
+        await router.connect(larry).swapSpcforEth(parseEther("500"), parseEther("1"));
+
+        await liquidityPool.connect(jenny).approve(router.address, await liquidityPool.balanceOf(jenny.address));
+        await router.connect(jenny).removeLiquidity(await liquidityPool.balanceOf(jenny.address));
+        const jennySpcAfterBurn = await spaceCoin.balanceOf(jenny.address);
+        expect(jennySpcAfterBurn.gt(intitialJennySpc)).to.be.true;
+    });
 });
