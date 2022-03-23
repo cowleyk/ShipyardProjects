@@ -219,6 +219,21 @@ describe("LiquidityPool", function () {
         expect(await spaceCoin.balanceOf(jenny.address)).to.equal(0);
     });
 
+    it("Sends the appropriate amount of ETH even when extra ETH is added", async () => {
+        await spaceCoin.approve(router.address, parseEther("50"));
+        await router.addLiquidity(parseEther("50"), {value: parseEther("10")});        
+
+        const spcDeposit = parseEther("5");
+        await spaceCoin.transfer(liquidityPool.address, spcDeposit);
+        await creator.sendTransaction({ to: liquidityPool.address, value: parseEther("5") });
+        const expectedEth = await router.getSwapEstimate(spcDeposit, false);
+        const swapTxn = await liquidityPool.swapSpcForEth(jenny.address, expectedEth);
+        // const swapTxn = await liquidityPool.swap(jenny.address, expectedEth, true);
+
+        await expect(swapTxn).to.changeEtherBalance(jenny, expectedEth);
+
+    })
+
     // swapSpcforEth
     it("sends swapper ETH", async () => {
         await spaceCoin.approve(router.address, parseEther("50"));
