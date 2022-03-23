@@ -35,8 +35,8 @@ contract SpaceCoin is ERC20 {
     }
 
     /// @notice allow toggling of tax collection
-    function toggleTax(bool _tax) external {
+    function toggleTax(bool tax) external {
         require(msg.sender == treasury, "ONLY_TREASURY");
-        collectTaxes = _tax;
+        collectTaxes = tax;
     }
 }

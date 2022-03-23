@@ -33,7 +33,6 @@ contract ICO {
         GENERAL,
         OPEN
     }
-    bool public transferredSpc;
 
     /// @notice toggle controlled by `treasury` to pause/resume collection contributions
     bool public isPaused;
@@ -119,7 +118,7 @@ contract ICO {
 
     /// @notice buy SPC
     /// total contributions must be under or exactly equal to the phase goal to be valid
-    function buy() public payable {
+    function buy() external payable {
         require(!isPaused, "PAUSED_CAMPAIGN");
         require(
             userContributions[msg.sender] + msg.value <=
@@ -175,18 +174,18 @@ contract ICO {
 
     /// @notice add address to whitelist (treasury only)
     /// @notice specify toWhitelist = false to remove an address
-    function whitelistAddress(address _address, bool toWhitelist)
+    function whitelistAddress(address newAddress, bool toWhitelist)
         external
         onlyTreasury
     {
-        whitelist[_address] = toWhitelist;
-        emit AddressWhitelisted(_address);
+        whitelist[newAddress] = toWhitelist;
+        emit AddressWhitelisted(newAddress);
     }
 
     /// @notice allow treasury to pause/resume SPC purchasing
-    function toggleIsPaused(bool _pause) external onlyTreasury {
-        isPaused = _pause;
-        emit ICOStatusChange(_pause ? "Paused" : "Resumed");
+    function toggleIsPaused(bool pause) external onlyTreasury {
+        isPaused = pause;
+        emit ICOStatusChange(pause ? "Paused" : "Resumed");
     }
 
     /// @notice pull method for contributors to collect their tokens once Phase Open starts

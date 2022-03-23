@@ -4,15 +4,25 @@ pragma solidity ^0.8.0;
 import "./interfaces/IRouter.sol";
 import "./interfaces/ILiquidityPool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title A Router for interfacing with a liquiditiy pool
 /// @author Kevin Cowley
-contract Router is ReentrancyGuard, IRouter {
+contract Router is IRouter {
     /// @notice Contract interface of the associated liquidity pool
     ILiquidityPool public pool;
     /// @notice Contract interface of the associated Space Coin
     IERC20 public spcToken;
+
+    /// @notice Guard against reentrancy
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+    uint256 private _status;
+    modifier nonReentrant() {
+        require(_status != _ENTERED, "REENTRANT_CALL");
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
+    }
 
     constructor(address _pool, address _spcToken) {
         pool = ILiquidityPool(_pool);

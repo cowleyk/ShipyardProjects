@@ -5,11 +5,10 @@ import "./interfaces/ILiquidityPool.sol";
 import "./libraries/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title A Liquidity pool for Space Coin and ETH
 /// @author Kevin Cowley
-contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
+contract LiquidityPool is ILiquidityPool, ERC20 {
     /// @notice Contract interface for the associated space coin
     IERC20 public immutable spcToken;
 
@@ -19,6 +18,18 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
 
     /// @notice Constant used for minting and mock-destroying a minute amount of KVY
     uint256 private constant MINIMUM_LIQUIDITY = 1000;
+
+    /// @notice Guard against reentrancy
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+    uint256 private _status;
+    modifier nonReentrant() {
+        require(_status != _ENTERED, "REENTRANT_CALL");
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
+    }
+
 
     constructor(address _spcToken) ERC20("KevvySwaps Coin", "KVY") {
         spcToken = IERC20(_spcToken);
@@ -87,12 +98,12 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
         /// @notice destroy the token
         _burn(address(this), liquidity);
 
+        _update(currentEth - returnEth, currentSpc - returnSpc);
         /// @notice send the calculated ETH and SPC to the burner's address
         (bool successEth, ) = burner.call{value: returnEth}("");
         require(successEth, "FAILED_ETH_TRANSFER");
         bool successSpc = spcToken.transfer(burner, returnSpc);
         require(successSpc, "FAILED_SPC_TRANSFER");
-        _update(address(this).balance, spcToken.balanceOf(address(this)));
     }
 
     /// @notice Exchange ETH (previously deposited) for SPC
@@ -121,10 +132,10 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
             (100 * (currentSpc - amountSpcOut));
         require(kAfter >= kBefore, "INVALID_K");
 
+        _update(currentEth, currentSpc - amountSpcOut);
         /// @notice transfer the SPC to the swapper
         bool success = spcToken.transfer(swapper, amountSpcOut);
         require(success, "FAILED_SPC_TRANSFER");
-        _update(currentEth, spcToken.balanceOf(address(this)));
     }
 
     /// @notice Exchange SPC (previously transferred) for ETH
@@ -153,10 +164,10 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
             (100 * currentSpc - expectedSpc);
         require(kAfter >= kBefore, "INVALID_K");
 
+        _update(currentEth - amountEthOut, currentSpc);
         /// @notice transfer the ETH to the swapper
         (bool success, ) = swapper.call{value: amountEthOut}("");
         require(success, "FAILED_ETH_TRANSFER");
-        _update(address(this).balance, currentSpc);
     }
 
     /// @notice function to expose accounted for ETH and SPC balances
