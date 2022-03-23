@@ -4,6 +4,10 @@ coverage
 coverage.json
 typechain
 
+LiquidityPoolApp/node_modules
+LiquidityPoolApp/.parcel-cache
+LiquidityPoolApp/dist
+
 #Hardhat files
 cache
 artifacts
