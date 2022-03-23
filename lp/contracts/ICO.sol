@@ -57,7 +57,6 @@ contract ICO {
         _status = _NOT_ENTERED;
     }
 
-
     /// @notice state change events
     event PhaseAdvanced(string _newPhase);
     event UserContribution(address indexed _contributor, uint256 _amount);
@@ -69,10 +68,12 @@ contract ICO {
     constructor(address[] memory _whitelist) {
         treasury = msg.sender;
 
-        uint length = _whitelist.length;
-        for(uint i = 0; i < length;) {
+        uint256 length = _whitelist.length;
+        for (uint256 i = 0; i < length; ) {
             whitelist[_whitelist[i]] = true;
-            unchecked { i++; }
+            unchecked {
+                i++;
+            }
         }
     }
 
@@ -90,7 +91,11 @@ contract ICO {
         return whitelist[msg.sender];
     }
 
-    function getMaxIndividualContribution(Phase _currentPhase) public pure returns (uint maxContribution) {
+    function getMaxIndividualContribution(Phase _currentPhase)
+        public
+        pure
+        returns (uint256 maxContribution)
+    {
         if (_currentPhase == Phase.SEED) {
             maxContribution = 1500 ether;
         } else if (_currentPhase == Phase.GENERAL) {
@@ -100,7 +105,11 @@ contract ICO {
         }
     }
 
-    function getMaxPhaseContribution(Phase _currentPhase) public pure returns (uint maxContribution) {
+    function getMaxPhaseContribution(Phase _currentPhase)
+        public
+        pure
+        returns (uint256 maxContribution)
+    {
         if (_currentPhase == Phase.SEED) {
             maxContribution = 15_000 ether;
         } else {
@@ -163,9 +172,13 @@ contract ICO {
     function advancePhase(Phase expectedCurrentPhase) external onlyTreasury {
         _advancePhase(expectedCurrentPhase);
     }
+
     /// @notice add address to whitelist (treasury only)
     /// @notice specify toWhitelist = false to remove an address
-    function whitelistAddress(address _address, bool toWhitelist) external onlyTreasury {
+    function whitelistAddress(address _address, bool toWhitelist)
+        external
+        onlyTreasury
+    {
         whitelist[_address] = toWhitelist;
         emit AddressWhitelisted(_address);
     }

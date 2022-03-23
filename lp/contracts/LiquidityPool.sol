@@ -10,16 +10,15 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 /// @title A Liquidity pool for Space Coin and ETH
 /// @author Kevin Cowley
 contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
-    
     /// @notice Contract interface for the associated space coin
-    IERC20 immutable public spcToken;
+    IERC20 public immutable spcToken;
 
     /// @notice Accounting variables for last know ETH and SPC balances
-    uint private reserveEth;
-    uint private reserveSpc;
+    uint256 private reserveEth;
+    uint256 private reserveSpc;
 
     /// @notice Constant used for minting and mock-destroying a minute amount of KVY
-    uint private constant MINIMUM_LIQUIDITY = 1000;
+    uint256 private constant MINIMUM_LIQUIDITY = 1000;
 
     constructor(address _spcToken) ERC20("KevvySwaps Coin", "KVY") {
         spcToken = IERC20(_spcToken);
@@ -28,29 +27,31 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
     /// @notice Distribute KVY based on the last deposits of ETH and SPC
     /// @param to Address to send KVY
     function mint(address to) external override nonReentrant {
-        uint _reserveEth = reserveEth;
-        uint _reserveSpc = reserveSpc;
+        uint256 _reserveEth = reserveEth;
+        uint256 _reserveSpc = reserveSpc;
 
         /// @notice currentEth and currentSpc account for any transfers into the pool
-        uint currentEth = address(this).balance;
-        uint currentSpc = spcToken.balanceOf(address(this));
+        uint256 currentEth = address(this).balance;
+        uint256 currentSpc = spcToken.balanceOf(address(this));
         require(currentEth > _reserveEth, "UNMINTABLE");
         require(currentSpc > _reserveSpc, "UNMINTABLE");
 
         /// @notice How much ETH/SPC should be used to calculate the amount of KVY to mint
-        uint mintableEth = currentEth - _reserveEth;
-        uint mintableSpc = currentSpc - _reserveSpc;
-        uint _totalSupplyKvy = totalSupply();
+        uint256 mintableEth = currentEth - _reserveEth;
+        uint256 mintableSpc = currentSpc - _reserveSpc;
+        uint256 _totalSupplyKvy = totalSupply();
 
-        uint amountKvy;
-        if(_totalSupplyKvy == 0) {
+        uint256 amountKvy;
+        if (_totalSupplyKvy == 0) {
             /// @notice assume initial liquidity added is equal value of each token
-            amountKvy = Math.sqrt(mintableEth * mintableSpc) - MINIMUM_LIQUIDITY;
+            amountKvy =
+                Math.sqrt(mintableEth * mintableSpc) -
+                MINIMUM_LIQUIDITY;
         } else {
             /// @notice mint liquidity proportional to the current totalSupply or SPC or ETH
             /// @dev based on: liquidity = delta_token / previous_token * total_KVY
-            uint liqEth = mintableEth * _totalSupplyKvy / _reserveEth;
-            uint liqSpc = mintableSpc * _totalSupplyKvy / _reserveSpc;
+            uint256 liqEth = (mintableEth * _totalSupplyKvy) / _reserveEth;
+            uint256 liqSpc = (mintableSpc * _totalSupplyKvy) / _reserveSpc;
 
             /// @notice use the minimum of the liquidity calculations
             amountKvy = liqSpc < liqEth ? liqSpc : liqEth;
@@ -65,20 +66,23 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
     /// @param burner Address to send the ETH and SPC to
     function burn(address burner) external override nonReentrant {
         /// @notice liquidity deposited by burner is the current balance of KVY in this contract
-        uint liquidity = balanceOf(address(this));
-        uint currentEth = address(this).balance;
-        uint currentSpc = spcToken.balanceOf(address(this));
-        require(currentEth > 0 && currentSpc > 0 && liquidity > 0, "INSUFFICIENT_LIQUIDITY");
+        uint256 liquidity = balanceOf(address(this));
+        uint256 currentEth = address(this).balance;
+        uint256 currentSpc = spcToken.balanceOf(address(this));
+        require(
+            currentEth > 0 && currentSpc > 0 && liquidity > 0,
+            "INSUFFICIENT_LIQUIDITY"
+        );
 
-        uint _totalSupplyKvy = totalSupply();
+        uint256 _totalSupplyKvy = totalSupply();
         /// @dev Subtracting MINIMUM_LIQUIDITY from the initial minting in side _mint and this require
-            /// help prevent the minimum price of a share from skyrocketting
-            /// this require is done to mimic Uniswap's _mint(address(0), MINIMUM_LIQUIDITY)
+        /// help prevent the minimum price of a share from skyrocketting
+        /// this require is done to mimic Uniswap's _mint(address(0), MINIMUM_LIQUIDITY)
         require(_totalSupplyKvy > MINIMUM_LIQUIDITY, "MINIMUM_LIQUIDITY");
 
         /// @notice calculate return amounts based on the proportion of burning liquidity / total liquidity
-        uint returnEth = liquidity * currentEth  / _totalSupplyKvy;
-        uint returnSpc = liquidity * currentSpc  / _totalSupplyKvy;
+        uint256 returnEth = (liquidity * currentEth) / _totalSupplyKvy;
+        uint256 returnSpc = (liquidity * currentSpc) / _totalSupplyKvy;
 
         /// @notice destroy the token
         _burn(address(this), liquidity);
@@ -94,22 +98,27 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
     /// @notice Exchange ETH (previously deposited) for SPC
     /// @param swapper Address to send the SPC to
     /// @param amountSpcOut Amount of SPC swapper expects to receive based on the ETH deposit
-    function swapEthForSpc(address swapper, uint amountSpcOut) external override nonReentrant {
-        uint _reserveEth = reserveEth;
+    function swapEthForSpc(address swapper, uint256 amountSpcOut)
+        external
+        override
+        nonReentrant
+    {
+        uint256 _reserveEth = reserveEth;
 
         /// @notice currentSPC *should* equal the reserveSpc
-        uint currentSpc = spcToken.balanceOf(address(this));
+        uint256 currentSpc = spcToken.balanceOf(address(this));
         /// @notice currentEth is the reserveEth + the ETH deposited for the swap
-        uint currentEth = address(this).balance;
+        uint256 currentEth = address(this).balance;
 
         /// @notice ensure ETH is available for the swap
-        uint expectedEth = currentEth - _reserveEth;
+        uint256 expectedEth = currentEth - _reserveEth;
         require(expectedEth > 0, "INSUFFICIENT_DEPOSIT");
 
         /// @notice K should stay the same or increase after the swap
-        uint kBefore = (100 * _reserveEth) * (100 * reserveSpc);
+        uint256 kBefore = (100 * _reserveEth) * (100 * reserveSpc);
         /// @notice K after the swap also accounts for the 1% fee taken from the ETH
-        uint kAfter = (100 * currentEth - expectedEth) * (100 * (currentSpc - amountSpcOut));
+        uint256 kAfter = (100 * currentEth - expectedEth) *
+            (100 * (currentSpc - amountSpcOut));
         require(kAfter >= kBefore, "INVALID_K");
 
         /// @notice transfer the SPC to the swapper
@@ -121,38 +130,48 @@ contract LiquidityPool is ReentrancyGuard, ILiquidityPool, ERC20 {
     /// @notice Exchange SPC (previously transferred) for ETH
     /// @param swapper Address to send the SPC to
     /// @param amountEthOut Amount of ETH swapper expects to receive based on the SPC transfer
-    function swapSpcForEth(address swapper, uint amountEthOut) external override nonReentrant {
-        uint _reserveSpc = reserveSpc;
+    function swapSpcForEth(address swapper, uint256 amountEthOut)
+        external
+        override
+        nonReentrant
+    {
+        uint256 _reserveSpc = reserveSpc;
 
         /// @notice currentSpc is the reserveSpc + the SPC transferred in for the swap
-        uint currentSpc = spcToken.balanceOf(address(this));
+        uint256 currentSpc = spcToken.balanceOf(address(this));
         /// @notice currentEth *should* equal reserveEth
-        uint currentEth = address(this).balance;
+        uint256 currentEth = address(this).balance;
 
         /// @notice ensure SPC is available for the swap
-        uint expectedSpc = currentSpc - _reserveSpc;
+        uint256 expectedSpc = currentSpc - _reserveSpc;
         require(expectedSpc > 0, "INSUFFICIENT_DEPOSIT");
 
         /// @notice K should stay the same or increase after the swap
-        uint kBefore = (100 * reserveEth) * (100 * _reserveSpc);
+        uint256 kBefore = (100 * reserveEth) * (100 * _reserveSpc);
         /// @notice K after the swap also accounts for the 1% fee taken from the SPC
-        uint kAfter = (100 * (currentEth - amountEthOut)) * (100 * currentSpc - expectedSpc);
+        uint256 kAfter = (100 * (currentEth - amountEthOut)) *
+            (100 * currentSpc - expectedSpc);
         require(kAfter >= kBefore, "INVALID_K");
 
         /// @notice transfer the ETH to the swapper
-        (bool success,) = swapper.call{value: amountEthOut}("");
+        (bool success, ) = swapper.call{value: amountEthOut}("");
         require(success, "FAILED_ETH_TRANSFER");
         _update(address(this).balance, currentSpc);
     }
 
     /// @notice function to expose accounted for ETH and SPC balances
-    function getReserves() external view override returns (uint _reserveEth, uint _reserveSpc) {
+    function getReserves()
+        external
+        view
+        override
+        returns (uint256 _reserveEth, uint256 _reserveSpc)
+    {
         _reserveEth = reserveEth;
         _reserveSpc = reserveSpc;
     }
 
     /// @notice function to update the ETH and SPC accounting variables
-    function _update(uint newEth, uint newSpc) internal {
+    function _update(uint256 newEth, uint256 newSpc) internal {
         reserveEth = newEth;
         reserveSpc = newSpc;
     }

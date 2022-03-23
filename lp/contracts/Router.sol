@@ -21,26 +21,33 @@ contract Router is ReentrancyGuard, IRouter {
 
     /// @notice Calculates proper amounts of SPC and ETH and add liquidity to the pool
     /// @param depositedSpc How much SPC is intended to be deposited
-    function addLiquidity(uint depositedSpc) external payable override nonReentrant {
-        uint amountEth;
-        uint amountSpc;
-        (uint reserveEth, uint reserveSpc) = pool.getReserves();
+    function addLiquidity(uint256 depositedSpc)
+        external
+        payable
+        override
+        nonReentrant
+    {
+        uint256 amountEth;
+        uint256 amountSpc;
+        (uint256 reserveEth, uint256 reserveSpc) = pool.getReserves();
 
         if (reserveEth == 0 && reserveSpc == 0) {
             amountEth = msg.value;
             amountSpc = depositedSpc;
         } else {
             /// @notice calculate the value of ETH that matches the value of deposited SPC
-            uint expectedEth = quote(depositedSpc, reserveSpc, reserveEth);
-            if(expectedEth <= msg.value) {
+            uint256 expectedEth = quote(depositedSpc, reserveSpc, reserveEth);
+            if (expectedEth <= msg.value) {
                 /// @notice the user deposited too much value ETH for the amount of SPC, refund extra ETH
                 amountEth = expectedEth;
                 amountSpc = depositedSpc;
-                (bool success,) = msg.sender.call{value: msg.value - amountEth}("");
+                (bool success, ) = msg.sender.call{
+                    value: msg.value - amountEth
+                }("");
                 require(success, "FAILED_ETH_REFUND");
             } else {
                 /// @notice calculate the amount of SPC that can be deposited based on an ETH limit
-                uint expectedSpc = quote(msg.value, reserveEth, reserveSpc);
+                uint256 expectedSpc = quote(msg.value, reserveEth, reserveSpc);
                 /// @dev this assert should NEVER throw
                 assert(expectedSpc <= depositedSpc);
                 amountEth = msg.value;
@@ -53,7 +60,11 @@ contract Router is ReentrancyGuard, IRouter {
         require(successEth, "FAILED_ETH_TRANSFER");
 
         /// @notice transfer tokens to pool (assume SPC balance has already been approved)
-        bool successSpc = spcToken.transferFrom(msg.sender, address(pool), amountSpc);
+        bool successSpc = spcToken.transferFrom(
+            msg.sender,
+            address(pool),
+            amountSpc
+        );
         require(successSpc, "FAILED_SPC_TRANSFER");
 
         /// @notice mint tokens for sender
@@ -62,12 +73,19 @@ contract Router is ReentrancyGuard, IRouter {
 
     /// @notice Transfer KVY Tokens to the pool and receive ETH + SPC back
     /// @param liquidity Amount of KVY tokens to be burned
-    function removeLiquidity(uint liquidity) external override nonReentrant {
-        (uint reserveEth, uint reserveSpc) = pool.getReserves();
-        require(reserveEth > 0 && reserveSpc > 0 && liquidity > 0, "INSUFFICIENT_LIQUIDITY");
+    function removeLiquidity(uint256 liquidity) external override nonReentrant {
+        (uint256 reserveEth, uint256 reserveSpc) = pool.getReserves();
+        require(
+            reserveEth > 0 && reserveSpc > 0 && liquidity > 0,
+            "INSUFFICIENT_LIQUIDITY"
+        );
 
         /// @notice send KVY to liquidity pool
-        bool successSpc = pool.transferFrom(msg.sender, address(pool), liquidity);
+        bool successSpc = pool.transferFrom(
+            msg.sender,
+            address(pool),
+            liquidity
+        );
         require(successSpc, "FAILED_SPC_TRANSFER");
         /// @notice burn KVY tokens and return ETH + SPC
         pool.burn(msg.sender);
@@ -78,7 +96,11 @@ contract Router is ReentrancyGuard, IRouter {
     /// @param reserveA Accounted for quanitity in the liquidity pool
     /// @param reserveB Accounted for quanitity in the liquidity pool
     /// @return amountB Calculated quantity of the token
-    function quote(uint amountA, uint reserveA, uint reserveB) internal pure returns (uint amountB) {
+    function quote(
+        uint256 amountA,
+        uint256 reserveA,
+        uint256 reserveB
+    ) internal pure returns (uint256 amountB) {
         require(amountA > 0, "INSUFFICIENT_AMOUNT");
         /// @dev this assert should NEVER happen, if reserveA or reserveB is zero, addLiquidity() should not call quote
         assert(reserveA > 0 && reserveB > 0);
@@ -88,30 +110,43 @@ contract Router is ReentrancyGuard, IRouter {
 
     /// @notice Deposit ETH into the pool and receive equal value of SPC
     /// @param minSpcReturn minimum amount user will accept for swap. Rely on client to convert from slippage %
-    function swapEthForSpc(uint minSpcReturn) external payable override nonReentrant {
-        (uint reserveEth, uint reserveSpc) = pool.getReserves();
+    function swapEthForSpc(uint256 minSpcReturn)
+        external
+        payable
+        override
+        nonReentrant
+    {
+        (uint256 reserveEth, uint256 reserveSpc) = pool.getReserves();
 
         /// @notice calculate how much SPC to return after taking out 1% fee of ETH deposit
-        uint spcToSender = getAmountOut(msg.value, reserveEth, reserveSpc);
+        uint256 spcToSender = getAmountOut(msg.value, reserveEth, reserveSpc);
         require(spcToSender > minSpcReturn, "SLIPPAGE");
 
         /// @notice send ETH to pool
-        (bool success,) = address(pool).call{value: msg.value}("");
+        (bool success, ) = address(pool).call{value: msg.value}("");
         require(success, "FAILED_ETH_TRANSFER");
         pool.swapEthForSpc(msg.sender, spcToSender);
     }
 
     /// @notice Transfer SPC to the poos and receive equal value of ETH
     /// @param minEthReturn minimum amount user will accept for swap. Rely on client to convert from slippage %
-    function swapSpcforEth(uint spcDeposit, uint minEthReturn) external override nonReentrant {
-        (uint reserveEth, uint reserveSpc) = pool.getReserves();
-        
+    function swapSpcforEth(uint256 spcDeposit, uint256 minEthReturn)
+        external
+        override
+        nonReentrant
+    {
+        (uint256 reserveEth, uint256 reserveSpc) = pool.getReserves();
+
         /// @notice calculate how much ETH to return after taking out 1% fee of SPC deposit
-        uint ethToSender = getAmountOut(spcDeposit, reserveSpc, reserveEth);
+        uint256 ethToSender = getAmountOut(spcDeposit, reserveSpc, reserveEth);
         require(ethToSender > minEthReturn, "SLIPPAGE");
 
         /// @notice transfer spc to pool (assumes user already approved)
-        bool success = spcToken.transferFrom(msg.sender, address(pool), spcDeposit);
+        bool success = spcToken.transferFrom(
+            msg.sender,
+            address(pool),
+            spcDeposit
+        );
         require(success, "FAILED_SPC_TRANSFER");
         pool.swapSpcForEth(msg.sender, ethToSender);
     }
@@ -121,12 +156,16 @@ contract Router is ReentrancyGuard, IRouter {
     /// @param reserveIn Accounted for quanitity in the liquidity pool
     /// @param reserveOut Accounted for quanitity in the liquidity pool
     /// @return amountOut Calculated quantity of the token after fees
-    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
+    function getAmountOut(
+        uint256 amountIn,
+        uint256 reserveIn,
+        uint256 reserveOut
+    ) internal pure returns (uint256 amountOut) {
         require(amountIn > 0, "INSUFFICIENT_INPUT_AMOUNT");
         require(reserveIn > 0 && reserveOut > 0, "INSUFFICIENT_LIQUIDITY");
-        uint amountInWithFee = amountIn * 99;
-        uint numerator = amountInWithFee * reserveOut;
-        uint denominator = reserveIn * 100 + amountInWithFee;
+        uint256 amountInWithFee = amountIn * 99;
+        uint256 numerator = amountInWithFee * reserveOut;
+        uint256 denominator = (reserveIn * 100) + amountInWithFee;
         /// @dev algrebra breakdown:
         /// x1 * y1 = x2 * y2
         /// x1 * y1 = (x1 + xin)(y1 - yout)
@@ -139,10 +178,14 @@ contract Router is ReentrancyGuard, IRouter {
     /// @notice provide a swap estimate after fees
     /// @param deposit quantity of token to desposit
     /// @param isDepositEth true: user wants to swap ETH for SPC
-                        /// false: user wants to swap SPC for ETH
-    function getSwapEstimate(uint deposit, bool isDepositEth) external view returns (uint estimate) {
-        (uint reserveEth, uint reserveSpc) = pool.getReserves();
-        if(isDepositEth) {
+    /// false: user wants to swap SPC for ETH
+    function getSwapEstimate(uint256 deposit, bool isDepositEth)
+        external
+        view
+        returns (uint256 estimate)
+    {
+        (uint256 reserveEth, uint256 reserveSpc) = pool.getReserves();
+        if (isDepositEth) {
             estimate = getAmountOut(deposit, reserveEth, reserveSpc);
         } else {
             estimate = getAmountOut(deposit, reserveSpc, reserveEth);
@@ -152,14 +195,14 @@ contract Router is ReentrancyGuard, IRouter {
     /// @notice Getter to return amount of ETH accounted for in the pool
     /// @dev Used to calculate a more accurate exchange rate
     /// @dev returning reserveSpc / reserveEth does not give sufficient precision
-    function getReserveEth() external view returns (uint reserveEth) {
+    function getReserveEth() external view returns (uint256 reserveEth) {
         (reserveEth, ) = pool.getReserves();
     }
 
     /// @notice Getter to return amount of SPC accounted for in the pool
     /// @dev Used to calculate a more accurate exchange rate
     /// @dev returning reserveSpc / reserveEth does not give sufficient precision
-    function getReserveSpc() external view returns (uint reserveSpc) {
+    function getReserveSpc() external view returns (uint256 reserveSpc) {
         (, reserveSpc) = pool.getReserves();
     }
 }
