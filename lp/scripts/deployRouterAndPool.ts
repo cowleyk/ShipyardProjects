@@ -3,6 +3,7 @@
 //
 // When running the script with `npx hardhat run <script>` you'll find the Hardhat
 // Runtime Environment's members available in the global scope.
+import { formatEther, parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
 async function main() {
@@ -15,21 +16,32 @@ async function main() {
 
   const addrs = await ethers.getSigners(); //get the account to deploy the contract
 
-  console.log("Deploying contracts with the account:", addrs[1].address);
+  console.log("Deploying contracts with the account:", addrs[0].address);
+
+  const SpaceCoin = await ethers.getContractFactory("SpaceCoin");
+  const spaceCoin = await SpaceCoin.deploy();
 
   const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
-  // GRAB _spcToken 
-  const _spcTokenAddress = '< grab off ICO after ICO is completed >'
-  const liquidityPool = await LiquidityPool.deploy(_spcTokenAddress);
+  const liquidityPool = await LiquidityPool.deploy(spaceCoin.address);
 
   const Router = await ethers.getContractFactory("Router");
-  const router = await Router.deploy(liquidityPool.address, _spcTokenAddress);
+  const router = await Router.deploy(liquidityPool.address, spaceCoin.address);
 
+  await spaceCoin.deployed();
   await liquidityPool.deployed();
   await router.deployed();
 
+  // DEV ONLY
+//   spaceCoin.transfer(addrs[0].address, parseEther("150000"));
+  await spaceCoin.connect(addrs[0]).approve(router.address, parseEther("150000"));
+  await router.connect(addrs[0]).addLiquidity(parseEther("150000"), { value: parseEther("30000")});
+
+  console.log("spaceCoin deployed to:", spaceCoin.address);
   console.log("liquidityPool deployed to:", liquidityPool.address);
   console.log("router deployed to:", router.address);
+
+  console.log('pool SPC', formatEther(await spaceCoin.balanceOf(liquidityPool.address)));
+  console.log('addrs[0] KVY', formatEther(await liquidityPool.balanceOf(addrs[0].address)));
 }
 
 // We recommend this pattern to be able to use async/await everywhere

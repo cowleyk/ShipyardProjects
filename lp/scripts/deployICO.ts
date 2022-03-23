@@ -15,7 +15,7 @@ async function main() {
 
   const addrs = await ethers.getSigners(); //get the account to deploy the contract
 
-  console.log("Deploying contracts with the account:", addrs[1].address);
+  console.log("Deploying contracts with the account:", addrs[0].address);
 
   const ICO = await ethers.getContractFactory("ICO");
   const ico = await ICO.deploy(addrs.map(addr => addr.address));
