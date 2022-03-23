@@ -98,15 +98,6 @@ contract Router is ReentrancyGuard, IRouter {
         pool.swap(msg.sender, ethToSender, true);
     }
 
-    function getSwapEstimate(uint deposit, bool isDepositEth) external view returns (uint estimate) {
-        (uint reserveEth, uint reserveSpc) = pool.getReserves();
-        if(isDepositEth) {
-            estimate = getAmountOut(deposit, reserveEth, reserveSpc);
-        } else {
-            estimate = getAmountOut(deposit, reserveSpc, reserveEth);
-        }
-    }
-
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
         require(amountIn > 0, "INSUFFICIENT_INPUT_AMOUNT");
         require(reserveIn > 0 && reserveOut > 0, "INSUFFICIENT_LIQUIDITY");
@@ -119,5 +110,22 @@ contract Router is ReentrancyGuard, IRouter {
         /// x1 * y1 = (x1 * y1) + (xin * y1) - (x1 * yout) - (xin * yout)
         /// yout = (xin * y1) / (x1 + xin)
         amountOut = numerator / denominator;
+    }
+
+    // UI helper functions
+    function getSwapEstimate(uint deposit, bool isDepositEth) external view returns (uint estimate) {
+        (uint reserveEth, uint reserveSpc) = pool.getReserves();
+        if(isDepositEth) {
+            estimate = getAmountOut(deposit, reserveEth, reserveSpc);
+        } else {
+            estimate = getAmountOut(deposit, reserveSpc, reserveEth);
+        }
+    }
+
+    function getReserveEth() external view returns (uint reserveEth) {
+        (reserveEth, ) = pool.getReserves();
+    }
+    function getReserveSpc() external view returns (uint reserveSpc) {
+        (, reserveSpc) = pool.getReserves();
     }
 }
