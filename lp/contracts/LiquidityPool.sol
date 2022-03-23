@@ -30,6 +30,11 @@ contract LiquidityPool is ILiquidityPool, ERC20 {
         _status = _NOT_ENTERED;
     }
 
+    event Mint(address indexed to, uint256 amount);
+    event Burn(address indexed to, uint256 amountBurnt, uint256 amountEth, uint256 amountSpc);
+    event SwapEthForSpc(address indexed to, uint256 amountOut);
+    event SwapSpcForEth(address indexed to, uint256 amountOut);
+    event UpdateReserves(uint256 newEth, uint256 newSpc);
 
     constructor(address _spcToken) ERC20("KevvySwaps Coin", "KVY") {
         spcToken = IERC20(_spcToken);
@@ -71,6 +76,7 @@ contract LiquidityPool is ILiquidityPool, ERC20 {
         _update(currentEth, currentSpc);
         /// @notice call the ERC20 mint function to create KVY
         _mint(to, amountKvy);
+        emit Mint(to, amountKvy);
     }
 
     /// @notice Destroy KVY and return the appropriate amount of ETH and SPC
@@ -104,6 +110,7 @@ contract LiquidityPool is ILiquidityPool, ERC20 {
         require(successEth, "FAILED_ETH_TRANSFER");
         bool successSpc = spcToken.transfer(burner, returnSpc);
         require(successSpc, "FAILED_SPC_TRANSFER");
+        emit Burn(burner, liquidity, returnEth, returnSpc);
     }
 
     /// @notice Exchange ETH (previously deposited) for SPC
@@ -136,6 +143,7 @@ contract LiquidityPool is ILiquidityPool, ERC20 {
         /// @notice transfer the SPC to the swapper
         bool success = spcToken.transfer(swapper, amountSpcOut);
         require(success, "FAILED_SPC_TRANSFER");
+        emit SwapEthForSpc(swapper, amountSpcOut);
     }
 
     /// @notice Exchange SPC (previously transferred) for ETH
@@ -168,6 +176,7 @@ contract LiquidityPool is ILiquidityPool, ERC20 {
         /// @notice transfer the ETH to the swapper
         (bool success, ) = swapper.call{value: amountEthOut}("");
         require(success, "FAILED_ETH_TRANSFER");
+        emit SwapSpcForEth(swapper, amountEthOut);
     }
 
     /// @notice function to expose accounted for ETH and SPC balances
@@ -185,6 +194,7 @@ contract LiquidityPool is ILiquidityPool, ERC20 {
     function _update(uint256 newEth, uint256 newSpc) internal {
         reserveEth = newEth;
         reserveSpc = newSpc;
+        emit UpdateReserves(newEth, newSpc);
     }
 
     /// @notice function for updating the accounting variable to the correct balances of ETH and SPC
