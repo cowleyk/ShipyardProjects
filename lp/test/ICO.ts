@@ -20,6 +20,12 @@ describe("ICO", function () {
         await ico.deployed();
     });
 
+    it("Sets a transferable owner", async () => {
+        expect(await ico.owner()).to.equal(creator.address);
+        await ico.transferOwnership(larry.address);
+        expect(await ico.owner()).to.equal(larry.address);
+    });
+
     it("investors can purchase tokens during Phase Seed", async () => {
         await ico.connect(creator).whitelistAddress(larry.address, true);
         await ico.connect(creator).whitelistAddress(jenny.address, true);

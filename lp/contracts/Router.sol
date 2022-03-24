@@ -4,10 +4,11 @@ pragma solidity ^0.8.0;
 import "./interfaces/IRouter.sol";
 import "./interfaces/ILiquidityPool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title A Router for interfacing with a liquiditiy pool
 /// @author Kevin Cowley
-contract Router is IRouter {
+contract Router is IRouter, Ownable {
     /// @notice Contract interface of the associated liquidity pool
     ILiquidityPool public pool;
     /// @notice Contract interface of the associated Space Coin

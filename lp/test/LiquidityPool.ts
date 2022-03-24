@@ -28,6 +28,12 @@ describe("LiquidityPool", function () {
         await router.deployed();
     });
 
+    it("Sets a transferable owner", async () => {
+        expect(await liquidityPool.owner()).to.equal(creator.address);
+        await liquidityPool.transferOwnership(larry.address);
+        expect(await liquidityPool.owner()).to.equal(larry.address);
+    });
+
     // mint
     it("initially mints KVY assuming equal value of each token deposited", async () => {
         await spaceCoin.transfer(liquidityPool.address, parseEther("50"));

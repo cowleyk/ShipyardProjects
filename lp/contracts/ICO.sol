@@ -5,10 +5,11 @@ import "./SpaceCoin.sol";
 import "./interfaces/IRouter.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title A contract for raising ICO funds
 /// @author Kevin Cowley
-contract ICO {
+contract ICO is Ownable {
     /// @dev This implementation using `SpaceCoin` does not need SafeERC20
     /// This was added in case `SpaceCoin` is swapped out for a token that isn't based
     /// off openzeppelin's ERC20

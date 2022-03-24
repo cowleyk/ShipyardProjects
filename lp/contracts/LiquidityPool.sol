@@ -5,10 +5,11 @@ import "./interfaces/ILiquidityPool.sol";
 import "./libraries/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title A Liquidity pool for Space Coin and ETH
 /// @author Kevin Cowley
-contract LiquidityPool is ILiquidityPool, ERC20 {
+contract LiquidityPool is ILiquidityPool, ERC20, Ownable {
     /// @notice Contract interface for the associated space coin
     IERC20 public immutable spcToken;
 

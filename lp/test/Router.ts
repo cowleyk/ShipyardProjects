@@ -27,6 +27,12 @@ describe("Router", function () {
         await router.deployed();
     });
 
+    it("Sets a transferable owner", async () => {
+        expect(await router.owner()).to.equal(creator.address);
+        await router.transferOwnership(larry.address);
+        expect(await router.owner()).to.equal(larry.address);
+    });    
+
     it("adds initial liquidity", async function () {
         await spaceCoin.connect(creator).transfer(larry.address, parseEther("50"));
         spaceCoin.connect(larry).approve(router.address, parseEther("50"));

@@ -19,6 +19,12 @@ describe("SpaceCoin", function () {
         await spaceCoin.deployed();
     });
 
+    it("Sets a transferable owner", async () => {
+        expect(await spaceCoin.owner()).to.equal(creator.address);
+        await spaceCoin.transferOwnership(larry.address);
+        expect(await spaceCoin.owner()).to.equal(larry.address);
+    });    
+
     it("treasury can toggle tax on and off", async () => {
         expect(await spaceCoin.collectTaxes()).to.be.false;
         await spaceCoin.toggleTax(true);

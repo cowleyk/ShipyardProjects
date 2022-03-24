@@ -2,10 +2,11 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title A token built for raising funds
 /// @author Kevin Cowley
-contract SpaceCoin is ERC20 {
+contract SpaceCoin is ERC20, Ownable {
     /// @notice are transactions being taxed
     bool public collectTaxes;
 
