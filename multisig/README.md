@@ -1,46 +1,33 @@
-# Advanced Sample Hardhat Project
+# Deliverables
 
-This project demonstrates an advanced Hardhat use case, integrating other tools commonly used alongside Hardhat in the ecosystem.
+## Multisig Wallet Address
+https://gnosis-safe.io/app/rin:0x5a6eDdB5afD8105D0E92178af51D5a95bf466b05
 
-The project comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts. It also comes with a variety of other tools, preconfigured to work with the project code.
+## Contracts on Etherscan
+### Space Coin
+Contract:
+https://rinkeby.etherscan.io/address/0xc7D4d361d17987B9908a0a682Ba30EdECb0Db1B1
 
-Try running some of the following tasks:
+Ownership transaction:
+https://rinkeby.etherscan.io/tx/0x7a6718e4c9eccfe1d22e2b1ca3ab1ec6a7ea8cb7eef10a7be0e3bcd1e7031f26
 
-```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-npx hardhat help
-REPORT_GAS=true npx hardhat test
-npx hardhat coverage
-npx hardhat run scripts/deploy.ts
-TS_NODE_FILES=true npx ts-node scripts/deploy.ts
-npx eslint '**/*.{js,ts}'
-npx eslint '**/*.{js,ts}' --fix
-npx prettier '**/*.{json,sol,md}' --check
-npx prettier '**/*.{json,sol,md}' --write
-npx solhint 'contracts/**/*.sol'
-npx solhint 'contracts/**/*.sol' --fix
-```
+### ICO
+Contract:
+https://rinkeby.etherscan.io/address/0x2CcA422D5c7D1bd2c38fAf5B7B94C14dE5D6D3c7
 
-# Etherscan verification
+Ownership transaction:
+https://rinkeby.etherscan.io/tx/0xca596f9f7f0ebcc66af63798e6fc5d7aeac5b5bfdef687376e7c220a98a05101
 
-To try out Etherscan verification, you first need to deploy a contract to an Ethereum network that's supported by Etherscan, such as Ropsten.
+### Liquidity Pool
+Contract:
+https://rinkeby.etherscan.io/address/0xCA591767656D841e788B5b28d0cf58dda8e5Edd2
 
-In this project, copy the .env.example file to a file named .env, and then edit it to fill in the details. Enter your Etherscan API key, your Ropsten node URL (eg from Alchemy), and the private key of the account which will send the deployment transaction. With a valid .env file in place, first deploy your contract:
+Ownership transaction:
+https://rinkeby.etherscan.io/tx/0x9dd842a8d30e6eed35466f8fa105e4e545276bc1b0c208fe0e0941fc4c3fdede
 
-```shell
-hardhat run --network ropsten scripts/deploy.ts
-```
+### Router
+Contract:
+https://rinkeby.etherscan.io/address/0x89a9DBcc55754c27ec3335C3708D8d9F0966F028
 
-Then, copy the deployment address and paste it in to replace `DEPLOYED_CONTRACT_ADDRESS` in this command:
-
-```shell
-npx hardhat verify --network ropsten DEPLOYED_CONTRACT_ADDRESS "Hello, Hardhat!"
-```
-
-# Performance optimizations
-
-For faster runs of your tests and scripts, consider skipping ts-node's type checking by setting the environment variable `TS_NODE_TRANSPILE_ONLY` to `1` in hardhat's environment. For more details see [the documentation](https://hardhat.org/guides/typescript.html#performance-optimizations).
+Ownership transaction:
+https://rinkeby.etherscan.io/tx/0xb885d2c4a863be50703bc05e9f2ccf5a2e1d220e6234aa941a6fe74ba1d32963
