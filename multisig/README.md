@@ -31,3 +31,9 @@ https://rinkeby.etherscan.io/address/0x89a9DBcc55754c27ec3335C3708D8d9F0966F028
 
 Ownership transaction:
 https://rinkeby.etherscan.io/tx/0xb885d2c4a863be50703bc05e9f2ccf5a2e1d220e6234aa941a6fe74ba1d32963
+
+## Non-static function call
+Called `SpaceCoin.toggleTax()`
+
+Rinkeby transaction:
+https://rinkeby.etherscan.io/tx/0x3e7da311f2a70c5e3468390390563758d9ac8ce3f470ed238ddc0f3f71ce5ee4
