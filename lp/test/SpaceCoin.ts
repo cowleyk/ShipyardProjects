@@ -34,7 +34,7 @@ describe("SpaceCoin", function () {
     });
 
     it("only treasury can toggle tax", async () => {
-        await expect(spaceCoin.connect(larry).toggleTax(true)).to.be.revertedWith("ONLY_TREASURY");
+        await expect(spaceCoin.connect(larry).toggleTax(true)).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
     it("collects aside 2% tax on all transfers when toggled on", async () => {

@@ -36,8 +36,7 @@ contract SpaceCoin is ERC20, Ownable {
     }
 
     /// @notice allow toggling of tax collection
-    function toggleTax(bool tax) external {
-        require(msg.sender == treasury, "ONLY_TREASURY");
+    function toggleTax(bool tax) external onlyOwner {
         collectTaxes = tax;
     }
 }
