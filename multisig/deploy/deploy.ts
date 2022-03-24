@@ -40,31 +40,33 @@ async function main() {
   console.log("router deployed to:", router.address);
 
   // Transfer Owners of contracts
-  // gnosis safe addr: rin:0x5a6eDdB5afD8105D0E92178af51D5a95bf466b05
+  // gnosis dummy-safe addr: rin:0x5a6eDdB5afD8105D0E92178af51D5a95bf466b05
+  // gnosis bar0-sunny-kcowley-safe address: rin:0xf329Cf2c512f3ac4cEA1F361589258896f298b9B
+  const gnosisSafe = '0xf329Cf2c512f3ac4cEA1F361589258896f298b9B'
   console.log('')
   console.log('transferring space coin ownership');
-  const spcTxn = await spaceCoin.transferOwnership('0x5a6eDdB5afD8105D0E92178af51D5a95bf466b05');
+  const spcTxn = await spaceCoin.transferOwnership(gnosisSafe);
   spcTxn.wait();
   console.log('finished space coin transfer')
   console.log('')
   await delay(10000);
 
   console.log('transferring ico ownership');
-  const icoTxn = await ico.transferOwnership('0x5a6eDdB5afD8105D0E92178af51D5a95bf466b05');
+  const icoTxn = await ico.transferOwnership(gnosisSafe);
   icoTxn.wait();
   console.log('finished ico transfer')
   console.log('')
   await delay(10000);
 
   console.log('transferring liquidity pool ownership');
-  const lpTxn = await liquidityPool.transferOwnership('0x5a6eDdB5afD8105D0E92178af51D5a95bf466b05');
+  const lpTxn = await liquidityPool.transferOwnership(gnosisSafe);
   lpTxn.wait();
   console.log('finished liquidity pool transfer')
   console.log('')
   await delay(10000);
 
   console.log('transferring router ownership')
-  const rtrTxn = await router.transferOwnership('0x5a6eDdB5afD8105D0E92178af51D5a95bf466b05');
+  const rtrTxn = await router.transferOwnership(gnosisSafe);
   rtrTxn.wait();
   console.log('finished router transfer')
   await delay(10000);
@@ -81,7 +83,7 @@ main().catch((error) => {
   process.exitCode = 1;
 });
 
-// OUTPUT
+// dummy-safe OUTPUT
 
 // Deploying contracts with the account: 0x80Fe107F18f2860e27413d48CD819d36Aad5DCFF
 // spaceCoin deployed to: 0xc7D4d361d17987B9908a0a682Ba30EdECb0Db1B1
@@ -101,3 +103,22 @@ main().catch((error) => {
 // transferring router ownership
 // finished router transfer
 
+// bar0-sunny-kcowley-safe safe OUTPUT
+
+// Deploying contracts with the account: 0x80Fe107F18f2860e27413d48CD819d36Aad5DCFF
+// spaceCoin deployed to: 0x2A8A6fA7F9eA9749C05D2265bc982780b442a394
+// ico deployed to: 0x6f23a3d15D603f9D15e70C4A5914B197a8b908C7
+// liquidityPool deployed to: 0xfEb5E42A3EF721451CF2D1d1F10A0056a6Fd1E03
+// router deployed to: 0xfd15C9F2B53CbD82e8a371A21Edc2BaC1d9E6190
+
+// transferring space coin ownership
+// finished space coin transfer
+
+// transferring ico ownership
+// finished ico transfer
+
+// transferring liquidity pool ownership
+// finished liquidity pool transfer
+
+// transferring router ownership
+// finished router transfer
