@@ -110,6 +110,11 @@ contract ProposalFactory is ContributorFactory {
         );
         require(proposal.status == ProposalStatus.REVIEW, "INVALID_PROPOSAL");
         proposals[proposalId].status = ProposalStatus.CANCELLED;
+        /// @notice notice allow proposal to be resubmitted
+        bytes32 hashedProposal = keccak256(
+            abi.encode(proposal.targets, proposal.values, proposal.calldatas, proposal.signatures)
+        );
+        activeProposals[hashedProposal] = false;
         emit ProposalCancelled(proposalId);
     }
 
