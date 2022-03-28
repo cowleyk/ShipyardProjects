@@ -12,11 +12,9 @@ contract CollectorDAO {
 
     /// @notice a member's information
     struct Contributor {
-        address _address;
         uint256 voteWeight;
         uint256 voteCount;
         uint256 contribution;
-        uint256 recentProposalId;
         bool whitelisted;
     }
 
@@ -29,10 +27,10 @@ contract CollectorDAO {
             "EIP712Domain(string name,uint256 chainId,address verifyingContract)"
         );
     bytes32 public constant BALLOT_TYPEHASH =
-        keccak256("Ballot(uint256 proposalId,uint8 support)");
+        keccak256("Ballot(uint256 proposalId,uint256 support)");
 
     /// @dev INITIATED status is never assigned or referenced
-    /// @dev INITIATED keeps keeps non-existant proposalId from defaulting to "REVIEW" state
+    /// @dev INITIATED keeps keeps non-existant proposals from defaulting and being treated as in "REVIEW" state
     enum ProposalStatus {
         INITIATED,
         REVIEW,
@@ -108,39 +106,20 @@ contract CollectorDAO {
         }
     }
 
-    modifier isGovenor() {
-        require(msg.sender == govenor, "PERMISSION_ERROR");
-        _;
-    }
-
     modifier isMember() {
         require(contributors[msg.sender].contribution >= 1 ether, "NOT_MEMBER");
         _;
     }
 
-    /// @notice member is required to either be white listed or have voted on 5 other proposals before permitted to create a proposal
-    /// @notice a member can only have one active proposal at a time
-    modifier canPropose() {
-        require(
-            contributors[msg.sender].whitelisted ||
-                contributors[msg.sender].voteCount >= 5,
-            "PERMISSION_ERROR"
-        );
-        require(
-            proposals[contributors[msg.sender].recentProposalId].status !=
-                ProposalStatus.REVIEW,
-            "MEMBER_PROPOSAL_EXISTS"
-        );
-        _;
-    }
-
     /// @notice allow govenor to add whitelisted addresses on the fly
-    function whitelistAddress(address proposer) external isGovenor {
+    function whitelistAddress(address proposer) external {
+        require(msg.sender == govenor, "PERMISSION_ERROR");
         contributors[proposer].whitelisted = true;
         emit AddressWhitelisted(proposer);
     }
 
     /// @notice an address can become a member with a 1 ETH contribution
+    /// @notice members must contribute a least 1 ETH up front to become a member
     function becomeMember() external payable {
         require(msg.value >= 1 ether, "INSUFFICIENT_FUNDS");
         require(contributors[msg.sender].contribution == 0, "MEMBER_EXISTS");
@@ -168,7 +147,13 @@ contract CollectorDAO {
         bytes[] memory calldatas,
         string[] memory signatures,
         string memory description
-    ) external isMember canPropose returns (uint256) {
+    ) external isMember returns (uint256) {
+        /// @notice member is required to either be white listed or have voted on 5 other proposals before permitted to create a proposal
+        require(
+            contributors[msg.sender].whitelisted ||
+                contributors[msg.sender].voteCount >= 5,
+            "PERMISSION_ERROR"
+        );
         require(
             targets.length == values.length &&
                 targets.length == calldatas.length &&
@@ -177,8 +162,10 @@ contract CollectorDAO {
         );
         require(targets.length != 0, "MISSING_FUNCTIONALITY");
 
+        /// @notice check that a duplicate proposal is not currently active
         bytes32 hashedProposal = keccak256(abi.encode(targets, values, calldatas, signatures));
         require(!activeProposals[hashedProposal], "PROPOSAL_ACTIVE");
+        /// @notice set this proposal to active
         activeProposals[hashedProposal] = true;
 
         totalProposals++;
@@ -198,7 +185,6 @@ contract CollectorDAO {
         });
 
         proposals[newProposal.id] = newProposal;
-        contributors[msg.sender].recentProposalId = newProposal.id;
         emit ProposalCreated(
             newProposal.id,
             msg.sender,
@@ -211,9 +197,11 @@ contract CollectorDAO {
         return newProposal.id;
     }
 
-    /// @notice only the govenor can cancel a proposal
-    function cancelProposal(uint8 proposalId) external isGovenor {
-        /// @notice proposal must be in "REVIEW" state
+    /// @notice the govenor can cancel a proposal at any time
+    /// @notice the propser can cancel a proposal as long as it is not eligible for execution
+    /// @notice proposal must be in "REVIEW" state
+    function cancelProposal(uint256 proposalId) external {
+        require(msg.sender == govenor || (msg.sender == proposals[proposalId].proposer && !proposalValid(proposalId)), "PERMISSION_ERROR"); 
         require(
             proposals[proposalId].status == ProposalStatus.REVIEW,
             "INVALID_PROPOSAL"
@@ -229,8 +217,8 @@ contract CollectorDAO {
     /// @param votes yes or no votes corresponding to the signature at the same index in the `signatures` array
     /// @param signatures array of EIP-712 sigantures from members
     function voteBySignatures(
-        uint8 proposalId,
-        uint8[] memory votes,
+        uint256 proposalId,
+        uint256[] memory votes,
         bytes[] memory signatures
     ) external returns (bytes[] memory) {
         require(
@@ -285,7 +273,7 @@ contract CollectorDAO {
     }
 
     /// @notice enable vote casting with non-signature transaction
-    function castVote(uint8 proposalId, uint8 support) external {
+    function castVote(uint256 proposalId, uint256 support) external {
         bool success = _castVote(proposalId, support, msg.sender);
         require(success, "VOTE_FAILED");
     }
@@ -293,8 +281,8 @@ contract CollectorDAO {
     /// @notice internal function to process signatures and accumulate votes
     /// @dev sigantures are checked to be non-zero address and checked to be an existing member
     function _castVote(
-        uint8 proposalId,
-        uint8 support,
+        uint256 proposalId,
+        uint256 support,
         address signatory
     ) internal returns (bool) {
         
@@ -328,7 +316,7 @@ contract CollectorDAO {
     }
 
     /// @notice make sure the proposal about to be executed meets the DAO criteria
-    function proposalValid(uint8 proposalId) internal view returns (bool) {
+    function proposalValid(uint256 proposalId) internal view returns (bool) {
         Proposal memory proposal = proposals[proposalId];
 
         /// @notice proposal must have gotten a vote from 25% of all members
@@ -347,7 +335,7 @@ contract CollectorDAO {
     }
 
     /// @notice execute proposal
-    function execute(uint8 proposalId) external payable {
+    function execute(uint256 proposalId) external payable {
         Proposal memory proposal = proposals[proposalId];
         require(
             msg.sender == govenor || msg.sender == proposal.proposer,

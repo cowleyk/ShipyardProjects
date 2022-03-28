@@ -30,7 +30,7 @@ describe("CollectorDAO", function () {
         types = {
             Ballot: [
                 { name: 'proposalId', type: 'uint256' },
-                { name: 'support', type: 'uint8' }
+                { name: 'support', type: 'uint256' }
             ]
         };
     });
@@ -90,22 +90,10 @@ describe("CollectorDAO", function () {
         );
         const proposalId = 1;
         const newProposal = await collectorDao.proposals(proposalId);
-        const whitelistedContributor = await collectorDao.contributors(whitelisted1.address);
 
         expect(await collectorDao.totalProposals()).to.equal(1);
         expect(newProposal.proposer).to.equal(whitelisted1.address);
         expect(newProposal.votes).to.equal(0);
-        expect(whitelistedContributor.recentProposalId).to.equal(newProposal.id);
-
-        // whitelisted1 cannot create a second proposal while they have an active proposal
-        await expect(collectorDao.connect(whitelisted1).propose(
-            [Wallet.createRandom().address, Wallet.createRandom().address], 
-            [1, 2], 
-            [randomBytes(1), randomBytes(1)], 
-            ['functSig1', 'functSig2'], 
-            'description'
-        ))
-        .to.be.revertedWith('MEMBER_PROPOSAL_EXISTS')
     });
 
     it("Requires a proposal to have valid parameters", async () => {
