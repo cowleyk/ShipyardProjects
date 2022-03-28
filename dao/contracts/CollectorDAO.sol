@@ -98,7 +98,7 @@ contract CollectorDAO is ProposalFactory {
     }
 
     /// @notice enable vote casting with non-signature transaction
-    function castVote(uint256 proposalId, uint256 support) external {
+    function castVote(uint256 proposalId, uint256 support) external isMember {
         bool success = _castVote(proposalId, support, msg.sender);
         require(success, "VOTE_FAILED");
     }
