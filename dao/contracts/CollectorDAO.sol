@@ -48,7 +48,6 @@ contract CollectorDAO {
         uint256[] values;
         bytes[] calldatas;
         string[] signatures;
-        string description;
         /// @dev data for calculating if proposal can be executed
         uint256 votes;
         uint256 totalVoteWeight;
@@ -77,8 +76,7 @@ contract CollectorDAO {
         address[] _targets,
         uint256[] _values,
         string[] _signatures,
-        bytes[] _calldatas,
-        string _description
+        bytes[] _calldatas
     );
     event ProposalCancelled(uint256 _proposalId);
     event VoteFailed(bytes _signature);
@@ -146,7 +144,6 @@ contract CollectorDAO {
         uint256[] memory values,
         bytes[] memory calldatas,
         string[] memory signatures,
-        string memory description
     ) external isMember returns (uint256) {
         /// @notice member is required to either be white listed or have voted on 5 other proposals before permitted to create a proposal
         require(
@@ -179,7 +176,6 @@ contract CollectorDAO {
             votes: 0,
             totalVoteWeight: 0,
             proVoteWeight: 0,
-            description: description,
             status: ProposalStatus.REVIEW,
             created: block.timestamp
         });
@@ -192,7 +188,6 @@ contract CollectorDAO {
             values,
             signatures,
             calldatas,
-            description
         );
         return newProposal.id;
     }
@@ -201,17 +196,19 @@ contract CollectorDAO {
     /// @notice the propser can cancel a proposal as long as it is not eligible for execution
     /// @notice proposal must be in "REVIEW" state
     function cancelProposal(uint256 proposalId) external {
-        require(msg.sender == govenor || (msg.sender == proposals[proposalId].proposer && !proposalValid(proposalId)), "PERMISSION_ERROR"); 
+        Proposal memory proposal = proposals[proposalId];
+        bool preQuorum = proposal.votes * 4 < totalMembers;
+        require(msg.sender == govenor || (msg.sender == proposal.proposer && preQuorum), "PERMISSION_ERROR"); 
         require(
-            proposals[proposalId].status == ProposalStatus.REVIEW,
+            proposal.status == ProposalStatus.REVIEW,
             "INVALID_PROPOSAL"
         );
-        proposals[proposalId].status = ProposalStatus.CANCELLED;
+        proposal.status = ProposalStatus.CANCELLED;
         emit ProposalCancelled(proposalId);
     }
 
     /// @notice process batch votes all at once
-    /// @notice all signatures that to be counted as votes are returned for the client to handle
+    /// @notice all signatures that fail to be counted as votes are returned for the client to handle
     /// @dev signatures are required to be up to EIP-712 spec
     /// @param proposalId which proposal to vote on
     /// @param votes yes or no votes corresponding to the signature at the same index in the `signatures` array
@@ -231,6 +228,7 @@ contract CollectorDAO {
         bytes[] memory errors = new bytes[](signatures.length);
         for (uint256 i = 0; i < signatures.length; i++) {
             if (signatures[i].length == 65) {
+                /// @dev pull out signature data
                 bytes memory signature = signatures[i];
                 bytes32 r;
                 bytes32 s;
@@ -243,6 +241,8 @@ contract CollectorDAO {
                     v := byte(0, mload(add(signature, 0x60)))
                 }
 
+                /// @dev pull out EIP-712 data
+                /// @dev validates support and proposal ID are correct
                 bytes32 domainSeparator = keccak256(
                     abi.encode(
                         DOMAIN_TYPEHASH,
@@ -261,14 +261,17 @@ contract CollectorDAO {
 
                 bool voted = _castVote(proposalId, votes[i], signatory);
                 if (!voted) {
+                    /// @notice vote failed to be counted, add to errors
                     emit VoteFailed(signatures[i]);
                     errors[i] = signatures[i];
                 }
             } else {
+                /// @notice signature was not in correct format, add to errors
                 errors[i] = signatures[i];
             }
         }
         emit BatchVotesSubmitted(proposalId, errors);
+        /// @notice return accumulated failed signatures to client
         return errors;
     }
 
@@ -285,7 +288,6 @@ contract CollectorDAO {
         uint256 support,
         address signatory
     ) internal returns (bool) {
-        
 
         /// @notice check that signature is non-zero
         if (signatory == address(0)) {
@@ -394,13 +396,16 @@ contract CollectorDAO {
 
     /// @notice NFT Marketplace interactions
     function buyNFT(address marketPlaceAddress, address nftContract, uint nftId) public payable returns (bool buySuccess) {
+        /// @notice only this contract can call this function
         require(msg.sender == address(this), "PERMISSION_ERROR");
 
+        /// @notice send an empty signature but pre-encode entire calldata
         bytes memory _calldata = abi.encodeWithSignature("getPrice(address,uint256)", nftContract, nftId);
         (bool priceSuccess, bytes memory priceData) = executeTransaction(marketPlaceAddress, 0, "", _calldata);
         require(priceSuccess, "FAILED_PRICE_FETCH");
 
         uint price = abi.decode(priceData, (uint));
+        /// @notice ensure funds are available for the purchase
         require(price < address(this).balance, "INSUFFICIENT_FUNDS");
 
         (buySuccess,) = executeTransaction(marketPlaceAddress, price, "", abi.encodeWithSignature("buy(address,uint256)", nftContract, nftId));
