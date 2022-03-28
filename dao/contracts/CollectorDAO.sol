@@ -8,10 +8,7 @@ contract CollectorDAO {
     address public govenor;
 
     /// @notice total number of eligible voters
-    uint8 public totalMembers;
-
-    /// @notice total amount of ETH contributed by members
-    uint256 public totalContributions;
+    uint256 public totalMembers;
 
     /// @notice a member's information
     struct Contributor {
@@ -32,8 +29,10 @@ contract CollectorDAO {
             "EIP712Domain(string name,uint256 chainId,address verifyingContract)"
         );
     bytes32 public constant BALLOT_TYPEHASH =
-        keccak256("Ballot(uint256 proposalId)");
+        keccak256("Ballot(uint256 proposalId,uint8 support)");
 
+    /// @dev INITIATED status is never assigned or referenced
+    /// @dev INITIATED keeps keeps non-existant proposalId from defaulting to "REVIEW" state
     enum ProposalStatus {
         INITIATED,
         REVIEW,
@@ -44,7 +43,7 @@ contract CollectorDAO {
 
     /// @notice information about a specific proposal
     struct Proposal {
-        uint8 id;
+        uint256 id;
         address proposer;
         /// @dev information about the proposals actions
         address[] targets;
@@ -53,27 +52,29 @@ contract CollectorDAO {
         string[] signatures;
         string description;
         /// @dev data for calculating if proposal can be executed
-        uint8 votes;
+        uint256 votes;
         uint256 totalVoteWeight;
         uint256 proVoteWeight;
+        uint256 created;
         ProposalStatus status;
     }
 
     /// @notice lookup of proposal data by ID
     mapping(uint256 => Proposal) public proposals;
 
+    /// @notice lookup of proposal hashes
+    /// @dev used to ensure same proposal isn't proposed twice
+    mapping(bytes32 => bool) public activeProposals;
+
     /// @notice how many proposals have been submitted
     /// @dev use totalProposals to assign an ID to a new proposal
-    uint8 public totalProposals;
-
-    /// @notice the maximum number of actions a proposal can perform
-    uint256 public immutable maxTargets;
+    uint256 public totalProposals;
 
     event AddressWhitelisted(address _proposer);
     event MemberJoined(address _member);
     event MemberIncreasedStake(address indexed _member, uint256 _amount);
     event ProposalCreated(
-        uint8 indexed _id,
+        uint256 indexed _id,
         address indexed _proposer,
         address[] _targets,
         uint256[] _values,
@@ -81,37 +82,27 @@ contract CollectorDAO {
         bytes[] _calldatas,
         string _description
     );
-    event ProposalCancelled(uint8 _proposalId);
+    event ProposalCancelled(uint256 _proposalId);
     event VoteFailed(bytes _signature);
-    event BatchVotesSubmitted(uint8 indexed _proposalId, bytes[] _errors);
+    event BatchVotesSubmitted(uint256 indexed _proposalId, bytes[] _errors);
     event ProposalFailed(
-        uint8 indexed _proposalId,
+        uint256 indexed _proposalId,
         address _target,
         uint256 _value,
         string _signature,
         bytes _calldata
     );
-    event ExecuteTransaction(
-        uint8 indexed _proposalId,
-        address _target,
-        uint256 _value,
-        string _signature,
-        bytes _calldata
-    );
-    event ProposalExecuted(uint8 _proposalId);
+    event ProposalExecuted(uint256 _proposalId);
 
     /// @notice set up initial data of contract
     /// @param _govenor special permissions address for DAO manangement
-    /// @param _maxTargets limit of actions per proposal
     /// @param _whitelist list of addresses that can propose immediately after becoming members
     constructor(
         address _govenor,
-        uint256 _maxTargets,
         address[] memory _whitelist
     ) {
         govenor = _govenor;
         contributors[govenor].whitelisted = true;
-        maxTargets = _maxTargets;
         for (uint256 i = 0; i < _whitelist.length; i++) {
             contributors[_whitelist[i]].whitelisted = true;
         }
@@ -156,7 +147,6 @@ contract CollectorDAO {
 
         contributors[msg.sender].contribution += msg.value;
         contributors[msg.sender].voteWeight += msg.value;
-        totalContributions += msg.value;
         totalMembers++;
 
         emit MemberJoined(msg.sender);
@@ -166,7 +156,6 @@ contract CollectorDAO {
     function increaseStake() external payable isMember {
         contributors[msg.sender].contribution += msg.value;
         contributors[msg.sender].voteWeight += msg.value;
-        totalContributions += msg.value;
         emit MemberIncreasedStake(msg.sender, msg.value);
     }
 
@@ -179,7 +168,7 @@ contract CollectorDAO {
         bytes[] memory calldatas,
         string[] memory signatures,
         string memory description
-    ) external isMember canPropose returns (uint8) {
+    ) external isMember canPropose returns (uint256) {
         require(
             targets.length == values.length &&
                 targets.length == calldatas.length &&
@@ -187,7 +176,10 @@ contract CollectorDAO {
             "INVALID_PARAMETERS"
         );
         require(targets.length != 0, "MISSING_FUNCTIONALITY");
-        require(targets.length <= maxTargets, "ACTIONS_OVERFLOW");
+
+        bytes32 hashedProposal = keccak256(abi.encode(targets, values, calldatas, signatures));
+        require(!activeProposals[hashedProposal], "PROPOSAL_ACTIVE");
+        activeProposals[hashedProposal] = true;
 
         totalProposals++;
         Proposal memory newProposal = Proposal({
@@ -201,7 +193,8 @@ contract CollectorDAO {
             totalVoteWeight: 0,
             proVoteWeight: 0,
             description: description,
-            status: ProposalStatus.REVIEW
+            status: ProposalStatus.REVIEW,
+            created: block.timestamp
         });
 
         proposals[newProposal.id] = newProposal;
@@ -218,13 +211,9 @@ contract CollectorDAO {
         return newProposal.id;
     }
 
-    /// @notice the govenor or the proposing member can cancel a proposal
-    function cancelProposal(uint8 proposalId) external {
-        require(
-            msg.sender == proposals[proposalId].proposer ||
-                msg.sender == govenor,
-            "PERMISSION_ERROR"
-        );
+    /// @notice only the govenor can cancel a proposal
+    function cancelProposal(uint8 proposalId) external isGovenor {
+        /// @notice proposal must be in "REVIEW" state
         require(
             proposals[proposalId].status == ProposalStatus.REVIEW,
             "INVALID_PROPOSAL"
@@ -249,6 +238,7 @@ contract CollectorDAO {
             "INVALID_PROPOSAL"
         );
         require(votes.length == signatures.length, "INVALID_PARAMETERS");
+        require(votes.length > 0, "INVALID_PARAMETERS");
 
         bytes[] memory errors = new bytes[](signatures.length);
         for (uint256 i = 0; i < signatures.length; i++) {
@@ -264,7 +254,24 @@ contract CollectorDAO {
                     s := mload(add(signature, 0x40))
                     v := byte(0, mload(add(signature, 0x60)))
                 }
-                bool voted = castVote(proposalId, votes[i], v, r, s);
+
+                bytes32 domainSeparator = keccak256(
+                    abi.encode(
+                        DOMAIN_TYPEHASH,
+                        keccak256(bytes("CollectorDAO")),
+                        block.chainid,
+                        address(this)
+                    )
+                );
+                bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, votes[i]));
+                bytes32 digest = keccak256(
+                    abi.encodePacked("\x19\x01", domainSeparator, structHash)
+                );
+
+                /// @dev recover signature address
+                address signatory = ecrecover(digest, v, r, s);
+
+                bool voted = _castVote(proposalId, votes[i], signatory);
                 if (!voted) {
                     emit VoteFailed(signatures[i]);
                     errors[i] = signatures[i];
@@ -277,30 +284,20 @@ contract CollectorDAO {
         return errors;
     }
 
+    /// @notice enable vote casting with non-signature transaction
+    function castVote(uint8 proposalId, uint8 support) external {
+        bool success = _castVote(proposalId, support, msg.sender);
+        require(success, "VOTE_FAILED");
+    }
+
     /// @notice internal function to process signatures and accumulate votes
     /// @dev sigantures are checked to be non-zero address and checked to be an existing member
-    function castVote(
+    function _castVote(
         uint8 proposalId,
         uint8 support,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        address signatory
     ) internal returns (bool) {
-        bytes32 domainSeparator = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256(bytes("CollectorDAO")),
-                getChainIdInternal(),
-                address(this)
-            )
-        );
-        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId));
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, structHash)
-        );
-
-        /// @dev recover signature address
-        address signatory = ecrecover(digest, v, r, s);
+        
 
         /// @notice check that signature is non-zero
         if (signatory == address(0)) {
@@ -335,34 +332,22 @@ contract CollectorDAO {
         Proposal memory proposal = proposals[proposalId];
 
         /// @notice proposal must have gotten a vote from 25% of all members
-        if ((proposal.votes * 4) < totalMembers) {
-            return false;
-        }
-
-        /// @notice proposal's voteWeight for must be > 50% of the total voteWeight
-        if (
-            proposal.proVoteWeight <=
-            (proposal.totalVoteWeight - proposal.proVoteWeight)
-        ) {
-            return false;
-        }
+        require((proposal.votes * 4) >= totalMembers, "QUORUM");
 
         /// @notice proposal must not have been previously executed, cancelled, or failed
-        if (proposal.status != ProposalStatus.REVIEW) {
-            return false;
-        }
+        require(proposal.status == ProposalStatus.REVIEW, "INVALID_STATE");
+
+        /// @notice proposal must have been in review for 7 days
+        require(proposal.created + 7 days < block.timestamp, "SOAK_TIME");
+
+        /// @notice proposal's voteWeight for must be > 50% of the total voteWeight
+        require(proposal.proVoteWeight > (proposal.totalVoteWeight - proposal.proVoteWeight), "PROPOSAL_REJECTED");
 
         return true;
     }
 
     /// @notice execute proposal
-    /// @return bool false indicate failed, true to indicate successes
-    /// @return address if failed, the target's address of the failed action.  Else zero-address
-    function execute(uint8 proposalId)
-        external
-        payable
-        returns (bool, address)
-    {
+    function execute(uint8 proposalId) external payable {
         Proposal memory proposal = proposals[proposalId];
         require(
             msg.sender == govenor || msg.sender == proposal.proposer,
@@ -371,6 +356,9 @@ contract CollectorDAO {
         require(proposalValid(proposalId), "INVALID_PROPOSAL");
 
         proposals[proposalId].status = ProposalStatus.EXECUTED;
+        bytes32 hashedProposal = keccak256(abi.encode(proposal.targets, proposal.values, proposal.calldatas, proposal.signatures));
+        activeProposals[hashedProposal] = false;
+
         for (uint256 i = 0; i < proposal.targets.length; i++) {
             (bool success, ) = executeTransaction(
                 proposal.targets[i],
@@ -387,19 +375,11 @@ contract CollectorDAO {
                     proposal.signatures[i],
                     proposal.calldatas[i]
                 );
-                return (false, proposal.targets[i]);
             }
-            emit ExecuteTransaction(
-                proposalId,
-                proposal.targets[i],
-                proposal.values[i],
-                proposal.signatures[i],
-                proposal.calldatas[i]
-            );
+            require(success, "EXECUTION_FAILED");
         }
 
         emit ProposalExecuted(proposalId);
-        return (true, address(0));
     }
 
     /// @notice internal function to execute single action of a proposal
@@ -408,7 +388,7 @@ contract CollectorDAO {
         uint256 value,
         string memory signature,
         bytes memory data
-    ) internal returns (bool, bytes memory) {
+    ) internal returns (bool success, bytes memory returnData) {
         bytes memory callData;
         if (bytes(signature).length == 0) {
             callData = data;
@@ -419,21 +399,23 @@ contract CollectorDAO {
             );
         }
 
-        (bool success, bytes memory returnData) = target.call{value: value}(
+        (success, returnData) = target.call{value: value}(
             callData
         );
-        return (success, returnData);
     }
 
-    /// @notice return chain ID of chain that contract is running on
-    /// @dev required for EIP-712 spec
-    function getChainIdInternal() internal view returns (uint256) {
-        uint256 chainId;
+    /// @notice NFT Marketplace interactions
+    function buyNFT(address marketPlaceAddress, address nftContract, uint nftId) public payable returns (bool buySuccess) {
+        require(msg.sender == address(this), "PERMISSION_ERROR");
 
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            chainId := chainid()
-        }
-        return chainId;
+        bytes memory _calldata = abi.encodeWithSignature("getPrice(address,uint256)", nftContract, nftId);
+        (bool priceSuccess, bytes memory priceData) = executeTransaction(marketPlaceAddress, 0, "", _calldata);
+        require(priceSuccess, "FAILED_PRICE_FETCH");
+
+        uint price = abi.decode(priceData, (uint));
+        require(price < address(this).balance, "INSUFFICIENT_FUNDS");
+
+        (buySuccess,) = executeTransaction(marketPlaceAddress, price, "", abi.encodeWithSignature("buy(address,uint256)", nftContract, nftId));
+        require(buySuccess, "FAILED_NFT_BUY");
     }
 }
