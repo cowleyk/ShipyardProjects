@@ -5,10 +5,10 @@ import "./ContributorFactory.sol";
 
 /// @title Factory contract for creating and cancelling proposals
 contract ProposalFactory is ContributorFactory {
-    /// @dev INITIATED status is never assigned or referenced
-    /// @dev INITIATED keeps keeps non-existant proposals from defaulting and being treated as in "REVIEW" state
+    /// @dev DEFAULT status is never assigned or referenced
+    /// @dev DEFAULT keeps keeps non-existant proposals from defaulting and being treated as in "REVIEW" state
     enum ProposalStatus {
-        INITIATED,
+        DEFAULT,
         REVIEW,
         EXECUTED,
         FAILED,

@@ -9,9 +9,7 @@ import "./ProposalFactory.sol";
 contract CollectorDAO is ProposalFactory {
     /// @dev EIP-712 constants
     bytes32 public constant DOMAIN_TYPEHASH =
-        keccak256(
-            "EIP712Domain(string name,uint256 chainId,address verifyingContract)"
-        );
+        keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
     bytes32 public constant BALLOT_TYPEHASH =
         keccak256("Ballot(uint256 proposalId,uint256 support)");
 
@@ -32,7 +30,7 @@ contract CollectorDAO is ProposalFactory {
     }
 
     /// @notice process batch votes all at once
-    /// @notice all signatures that fail to be counted as votes are returned for the client to handle
+    /// @return errors all signatures that fail to be counted as votes
     /// @dev signatures are required to be up to EIP-712 spec
     /// @param proposalId which proposal to vote on
     /// @param votes yes or no votes corresponding to the signature at the same index in the `signatures` array
@@ -41,7 +39,7 @@ contract CollectorDAO is ProposalFactory {
         uint256 proposalId,
         uint256[] memory votes,
         bytes[] memory signatures
-    ) external returns (bytes[] memory) {
+    ) external returns (bytes[] memory errors) {
         require(
             proposals[proposalId].status == ProposalStatus.REVIEW,
             "INVALID_PROPOSAL"
@@ -49,7 +47,7 @@ contract CollectorDAO is ProposalFactory {
         require(votes.length == signatures.length, "INVALID_PARAMETERS");
         require(votes.length > 0, "INVALID_PARAMETERS");
 
-        bytes[] memory errors = new bytes[](signatures.length);
+        errors = new bytes[](signatures.length);
         for (uint256 i = 0; i < signatures.length; i++) {
             if (signatures[i].length == 65) {
                 /// @dev pull out signature data
@@ -97,8 +95,6 @@ contract CollectorDAO is ProposalFactory {
             }
         }
         emit BatchVotesSubmitted(proposalId, errors);
-        /// @notice return accumulated failed signatures to client
-        return errors;
     }
 
     /// @notice enable vote casting with non-signature transaction
@@ -168,13 +164,13 @@ contract CollectorDAO is ProposalFactory {
         string memory signature,
         bytes memory data
     ) internal returns (bool success, bytes memory returnData) {
-        bytes memory callData;
+        bytes memory _calldata;
         if (bytes(signature).length == 0) {
-            callData = data;
+            _calldata = data;
         } else {
-            callData = abi.encodePacked(bytes4(keccak256(bytes(signature))), data);
+            _calldata = abi.encodePacked(bytes4(keccak256(bytes(signature))), data);
         }
-        (success, returnData) = target.call{value: value}(callData);
+        (success, returnData) = target.call{value: value}(_calldata);
     }
 
     /// @notice NFT Marketplace interactions
@@ -182,7 +178,7 @@ contract CollectorDAO is ProposalFactory {
         address marketPlaceAddress,
         address nftContract,
         uint256 nftId
-    ) public payable returns (bool bought, uint256 price) {
+    ) external payable returns (bool bought, uint256 price) {
         /// @notice only this contract can call this function
         require(msg.sender == address(this), "PERMISSION_ERROR");
 
