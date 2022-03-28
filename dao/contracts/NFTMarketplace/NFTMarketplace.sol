@@ -6,12 +6,21 @@ import "./INFTMarketplace.sol";
 /// @title A dummy market place for the CollectorDAO contract to interact with
 /// @author Kevin Cowley
 contract NftMarketplace is INftMarketplace {
-
-    function getPrice(address nftContract, uint nftId) external override pure returns (uint price) {
+    function getPrice(address nftContract, uint256 nftId)
+        external
+        pure
+        override
+        returns (uint256 price)
+    {
         return 2 ether;
     }
 
-    function buy(address nftContract, uint nftId) external override payable returns (bool success) {
+    function buy(address nftContract, uint256 nftId)
+        external
+        payable
+        override
+        returns (bool success)
+    {
         return true;
     }
 }
