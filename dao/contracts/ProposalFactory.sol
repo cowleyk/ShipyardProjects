@@ -43,14 +43,7 @@ contract ProposalFactory is ContributorFactory {
     /// @dev use totalProposals to assign an ID to a new proposal
     uint256 public totalProposals;
 
-    event ProposalCreated(
-        uint256 indexed _id,
-        address indexed _proposer,
-        address[] _targets,
-        uint256[] _values,
-        string[] _signatures,
-        bytes[] _calldatas
-    );
+    event ProposalCreated(uint256 indexed _id, address indexed _proposer);
     event ProposalCancelled(uint256 _proposalId);
 
     /// @notice create a proposal with a list of functionality
@@ -100,14 +93,7 @@ contract ProposalFactory is ContributorFactory {
         });
 
         proposals[newProposal.id] = newProposal;
-        emit ProposalCreated(
-            newProposal.id,
-            msg.sender,
-            targets,
-            values,
-            signatures,
-            calldatas
-        );
+        emit ProposalCreated(newProposal.id, msg.sender);
         return newProposal.id;
     }
 
@@ -155,14 +141,15 @@ contract ProposalFactory is ContributorFactory {
         uint256 support,
         uint256 voteWeight
     ) internal {
+        /// @notice accumulate proposal's total votes
         proposals[proposalId].votes++;
 
-        /// @notice accumulate proposal's pro votes
+        /// @notice accumulate proposal's pro votes weighted
         if (support > 0) {
             proposals[proposalId].proVoteWeight += voteWeight;
         }
 
-        /// @notice accumulate proposal's total votes
+        /// @notice accumulate proposal's total votes weighted
         proposals[proposalId].totalVoteWeight += voteWeight;
     }
 }

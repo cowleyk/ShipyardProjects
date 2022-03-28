@@ -118,18 +118,13 @@ contract CollectorDAO is ProposalFactory {
         if (signatory == address(0)) {
             return false;
         }
-
         /// @notice check that signature is a member
         if (contributors[signatory].contribution < 1 ether) {
             return false;
         }
 
         /// @notice update proposal vote count and credit contributor for voting
-        _updateProposal(
-            proposalId,
-            support,
-            contributors[signatory].voteWeight
-        );
+        _updateProposal(proposalId, support, contributors[signatory].voteWeight);
         _updateContributor(signatory);
         return true;
     }
@@ -144,13 +139,9 @@ contract CollectorDAO is ProposalFactory {
         require(_proposalValid(proposalId), "INVALID_PROPOSAL");
 
         proposals[proposalId].status = ProposalStatus.EXECUTED;
+        /// @notice allow proposal to be resubmitted
         bytes32 hashedProposal = keccak256(
-            abi.encode(
-                proposal.targets,
-                proposal.values,
-                proposal.calldatas,
-                proposal.signatures
-            )
+            abi.encode(proposal.targets, proposal.values, proposal.calldatas, proposal.signatures)
         );
         activeProposals[hashedProposal] = false;
 
@@ -167,7 +158,6 @@ contract CollectorDAO is ProposalFactory {
             }
             require(success, "EXECUTION_FAILED");
         }
-
         emit ProposalExecuted(proposalId);
     }
 
@@ -182,10 +172,7 @@ contract CollectorDAO is ProposalFactory {
         if (bytes(signature).length == 0) {
             callData = data;
         } else {
-            callData = abi.encodePacked(
-                bytes4(keccak256(bytes(signature))),
-                data
-            );
+            callData = abi.encodePacked(bytes4(keccak256(bytes(signature))), data);
         }
         (success, returnData) = target.call{value: value}(callData);
     }
@@ -195,34 +182,21 @@ contract CollectorDAO is ProposalFactory {
         address marketPlaceAddress,
         address nftContract,
         uint256 nftId
-    ) public payable returns (bool buySuccess) {
+    ) public payable returns (bool bought, uint256 price) {
         /// @notice only this contract can call this function
         require(msg.sender == address(this), "PERMISSION_ERROR");
 
         /// @notice send an empty signature but pre-encode entire calldata
-        bytes memory _calldata = abi.encodeWithSignature(
-            "getPrice(address,uint256)",
-            nftContract,
-            nftId
-        );
-        (bool priceSuccess, bytes memory priceData) = _executeTransaction(
-            marketPlaceAddress,
-            0,
-            "",
-            _calldata
-        );
-        require(priceSuccess, "FAILED_PRICE_FETCH");
+        bytes memory priceCalldata = abi.encodeWithSignature("getPrice(address,uint256)", nftContract, nftId);
+        (bool success, bytes memory data) = _executeTransaction(marketPlaceAddress, 0, "", priceCalldata);
+        require(success, "FAILED_PRICE_FETCH");
 
-        uint256 price = abi.decode(priceData, (uint256));
+        price = abi.decode(data, (uint256));
         /// @notice ensure funds are available for the purchase
         require(price < address(this).balance, "INSUFFICIENT_FUNDS");
 
-        (buySuccess, ) = _executeTransaction(
-            marketPlaceAddress,
-            price,
-            "",
-            abi.encodeWithSignature("buy(address,uint256)", nftContract, nftId)
-        );
-        require(buySuccess, "FAILED_NFT_BUY");
+        bytes memory buyCalldata = abi.encodeWithSignature("buy(address,uint256)", nftContract, nftId);
+        (bought,) = _executeTransaction(marketPlaceAddress, price, "", buyCalldata);
+        require(bought, "FAILED_NFT_BUY");
     }
 }
