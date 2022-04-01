@@ -8,5 +8,6 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @notice A simple ERC20 token that will distributed in an Airdrop
 contract ShipyardToken is ERC20 {
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
+        _mint(msg.sender, 500 ether);
     }
 }

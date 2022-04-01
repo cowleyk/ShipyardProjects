@@ -87,7 +87,7 @@ contract Airdrop is Ownable {
         require(signatory == signer, "INVALID_CLAIM");
 
         alreadyClaimed[msg.sender] = true;
-        // shipToken.transfer(_to, _amount);
+        shipToken.transfer(_to, _amount);
     }
 
     /// @notice Allows a msg.sender to claim their $SHIP token by providing a
@@ -99,29 +99,24 @@ contract Airdrop is Ownable {
     /// is included in the Merkle tree represented by `Airdrop.merkleRoot`
     /// @param _to The address the claimed $SHIP should be sent to
     function merkleClaim(bytes32[] calldata _proof, address _to, uint256 _amount) external {
-        bytes32 computedHash = toLeafFormat(_to, _amount);
-        for (uint256 i = 0; i < _proof.length; i++) {
-            bytes32 proofElement = _proof[i];
-            if (computedHash <= proofElement) {
-                // Hash(current computed hash + current element of the proof)
-                computedHash = _efficientHash(computedHash, proofElement);
+        bytes32 accumulated = keccak256(abi.encodePacked(_to, _amount));
+
+        for(uint256 i = 0; i < _proof.length; i++) {
+            bytes32 sibling = _proof[i];
+
+            /// @notice merkle leafs were sorted, before creating the merkle tree
+            /// @notice sorted leaves means we can just compare values before hashing 
+            if(accumulated <= sibling) {
+                accumulated = keccak256(abi.encodePacked(accumulated, sibling));
             } else {
-                // Hash(current element of the proof + current computed hash)
-                computedHash = _efficientHash(proofElement, computedHash);
+                accumulated = keccak256(abi.encodePacked(sibling, accumulated));
             }
         }
-        require(computedHash == merkleRoot, "INVALID_CLAIM");
+
+        require(accumulated == merkleRoot, "INVALID_CLAIM");
 
         alreadyClaimed[msg.sender] = true;
-        // shipToken.transfer(_to, _amount);
-    }
-
-    function _efficientHash(bytes32 a, bytes32 b) private pure returns (bytes32 value) {
-        assembly {
-            mstore(0x00, a)
-            mstore(0x20, b)
-            value := keccak256(0x00, 0x40)
-        }
+        shipToken.transfer(_to, _amount);
     }
 
     /// @notice Causes `Airdrop.signatureClaim` to always revert
