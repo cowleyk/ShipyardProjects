@@ -16,8 +16,6 @@ challengeReward.solved = true;
 ```
 `challengeReward` is set in memory, so setting `challengeReward.solved = true;` will not actually alter the struct in storage
 
-## SudokuChallenge
-
 # Gas Optimizations
 ## SudokuExchange
 - No reason to store `challenge` inside the `ChallengeReward` struct
@@ -31,10 +29,10 @@ challengeReward.solved = true;
 
 - Add checks that `reward > 0` and `address(token) != address(0)` inside `createReward()` to prevent pointless challenges from being created
 
-## SudokuChallenge
+- `struct ChallengeReward.token` should be of type `address`
+
+- The `challengeReward` parameter passed into `createReward()` could be of type `calldata`
 
 # Code Quality Issues
 ## SudokuExchange
 - Empty constructor function
-
-## SudokuChallenge
