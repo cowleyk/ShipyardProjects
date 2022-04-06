@@ -3,6 +3,7 @@
 //
 // When running the script with `npx hardhat run <script>` you'll find the Hardhat
 // Runtime Environment's members available in the global scope.
+import * as dotenv from "dotenv";
 import { formatEther, parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
@@ -32,9 +33,10 @@ async function main() {
   await router.deployed();
 
   // DEV ONLY
-//   spaceCoin.transfer(addrs[0].address, parseEther("150000"));
-  await spaceCoin.connect(addrs[0]).approve(router.address, parseEther("150000"));
-  await router.connect(addrs[0]).addLiquidity(parseEther("150000"), { value: parseEther("30000")});
+  if(!process.env.LOCALHOST) {
+    await spaceCoin.connect(addrs[0]).approve(router.address, parseEther("150000"));
+    await router.connect(addrs[0]).addLiquidity(parseEther("150000"), { value: parseEther("30000")});
+  }
 
   console.log("spaceCoin deployed to:", spaceCoin.address);
   console.log("liquidityPool deployed to:", liquidityPool.address);
