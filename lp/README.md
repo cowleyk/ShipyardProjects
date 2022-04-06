@@ -2,18 +2,10 @@
 
 A liquidity pool for swapping Space Coin (SPC) for Ether
 
-## Live Contracts
-Rinkeby links
-
-## Usage
-Add liquidity
-Withdraw liquidity
-Swap ETH -> SPC
-Swap SPC -> ETH
-
 ## UI
 To run;
 ```
+# Update contract addresses inside ./LiquidityPoolApp/src/index.js
 ~ cd ./LiquidityPoolApp
 ~ yarn
 ~ yarn start
