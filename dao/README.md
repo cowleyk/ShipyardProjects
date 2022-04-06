@@ -1,5 +1,24 @@
 # Collector DAO
 
+A governance contract for a DAO who's purpose is buying NFTs, however proposal can contain any action.
+
+## Contracts
+
+Split into 3 contracts;
+- ContributorFactory: Management of members
+- ProposalFactory: Management of proposals
+- CollectorDAO: Voting and execution functionality
+
+Requirements:
+`npm`, `hardhat`
+
+### Run Tests
+```
+~ yarn install
+~ npx hardhat compile
+~ npx hardhat test
+```
+
 ## Voting System
 ### Proposals
 - 25% quorum required on proposals
@@ -29,13 +48,5 @@
 - 7 days to execute a proposal is slow and could cause missed opportunities
 - Potential for spam/griefing proposals
 
-## Design Exercise
-### Non-transitive vote delegation
-- Would have to track delegation inside contract
-- A simple mapping of a member's address to the delegatee's address
-- A member would be responsible for updating it's delegatee if they would like to use the feature
-
-### Transitive vote delegation
-- Member A delegates to trusted Member B
-- Member A does not trust Member C, but Member B can delegate Member A's vote to Member C
-- Votes start becoming more of a commodity rather than a mechanism for governance
+## License
+[MIT](https://choosealicense.com/licenses/mit/)
