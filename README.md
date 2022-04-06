@@ -1,5 +1,5 @@
-## ShipyardDAO Project Repo
+## ShipyardDAO Projects Repo
 
-This is the repo for all your projects in the course, excluding your mainnet project.
+All course projects
 
-Access the curriculum here: https://shipyard.school
+Access the ShipyardDAO curriculum here: https://shipyard.school
