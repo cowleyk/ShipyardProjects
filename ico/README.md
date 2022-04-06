@@ -1,26 +1,42 @@
 # SpaceCoin ICO
 
+An ICO for selling ERC-20 Spacec Coin token.  Will sell a total of 150,000 SPC at 5 SPC/ETH.
+
 ## UI
-- Built using create-react-app
-- Must be inside `app/` directory to start UI
+Requirements:
+`npm` or `yarn`
+
+To run;
+```
+~ cd ./app
+~ yarn
+~ yarn start
+```
 
 ## Contracts
-- ICO contract is deployed at Rinkeby address below
-- SpaceCoin is not currently deployed
-    - Handled of by the ICO contract once Phase Open is reached
+Requirements:
+`npm`, `hardhat`
+
+### Run Tests
+```
+~ yarn install
+~ npx hardhat compile
+~ npx hardhat test
+```
+
+### Deployment
+```
+# Update .env file with proper RINKEBY_URL and PRIVATE_KEY
+# Install npm packages if not already installed
+~ yarn install
+
+~ npx hardhat compile
+~ npx hardhat run scripts/deployRouterAndPool.ts --network <localhost || rinkeby || desired network>
+```
 
 ## Rinkeby Etherscan
+- Currently deployed at:
 https://rinkeby.etherscan.io/address/0x5d494871cA81b911E39dE24A911B77f8af28B4Ff
 
-## Design Exercise
-```
-The base requirements give contributors their SPC tokens immediately.
-How would you design your contract to vest the awarded tokens instead, i.e. award tokens to users over time, linearly?
-```
-
-### Owner pull approach
-- There needs to be a trigger to the SPC contract to transfer tokens.
-- I would continue to place the responsibility of collecting tokens even when awarded over time.
-- Contributors would be responsible for collecting their earned tokens every specified time interval.
-- The added complexity would be storing a "start time" per user,
-    - When the user requests their tokens, use that start time to calculate how many they're owed vs how many they have collected then transfer that amount
+## License
+[MIT](https://choosealicense.com/licenses/mit/)

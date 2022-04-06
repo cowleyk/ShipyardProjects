@@ -3,6 +3,9 @@
 A liquidity pool for swapping Space Coin (SPC) for Ether
 
 ## UI
+Requirements:
+`npm` or `yarn`
+
 To run;
 ```
 # Update contract addresses inside ./LiquidityPoolApp/src/index.js
