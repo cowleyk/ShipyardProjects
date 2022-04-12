@@ -40,7 +40,7 @@ contract CampaignFactory {
 /// @author Kevin Cowley
 contract Crowdfundr is ERC721, ReentrancyGuard {
     /// @dev Initializes ID counter for contribution badge
-    uint256 private _tokenId = 0;
+    uint256 private _tokenId;
 
     address payable public creator;
     uint256 public goal;
@@ -56,11 +56,12 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
 
     /// @notice storage of each contributer's total contribution in WEI
     mapping(address => uint256) public contributions;
+    /// @notice the number of badges a user has earned
+    mapping(address => uint256) public contributorBadges;
 
     constructor(address _creator, uint256 _goal)
         ERC721("ContributorBadge", "BDG")
     {
-        require(_creator != address(0), "Must provide a creator address");
         require(_goal >= 0.01 ether, "Goal must be meet min donation");
         creator = payable(_creator);
         goal = _goal;
@@ -127,7 +128,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
     }
 
     /// @notice contribute funds to the campaign and earn a badge for every 1 ETH
-    function contribute() external payable isActive {
+    function contribute() external payable isActive nonReentrant {
         require(msg.value >= 0.01 ether, "Must meet minimum donation");
 
         contributions[msg.sender] += msg.value;
@@ -139,11 +140,12 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
 
         /// @dev calculate amount of total contributions that has not already been rewarded a badge
         uint256 amountToReward = contributions[msg.sender] -
-            (balanceOf(msg.sender) * 1 ether);
+            (contributorBadges[msg.sender] * 1 ether);
         /// @dev for every 1 ether that has not already been rewarded, mint a new contribution badge
         while (amountToReward >= 1 ether) {
             amountToReward -= 1 ether;
             _tokenId++;
+            contributorBadges[msg.sender]++;
             _safeMint(msg.sender, _tokenId);
         }
     }
@@ -156,7 +158,7 @@ contract Crowdfundr is ERC721, ReentrancyGuard {
         returns (uint256[] memory)
     {
         uint256[] memory badges = new uint256[](balanceOf(_owner));
-        uint256 counter = 0;
+        uint256 counter;
         for (uint256 i = 1; i < _tokenId + 1; i++) {
             if (ownerOf(i) == _owner) {
                 badges[counter] = i;
